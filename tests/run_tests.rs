@@ -3,21 +3,34 @@ use predicates::prelude::*;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;
 
-// Should print Usage when no argument is given
 #[test]
 fn error_no_source_file() -> TestResult {
-    let mut cmd = Command::cargo_bin("brainfuck")?;
+    let mut cmd = Command::cargo_bin("brainflux")?;
     cmd.assert()
         .failure()
-        .stderr(predicate::str::contains("Usage: brainfuck <SOURCE_FILE>"));
+        .stderr(predicate::str::contains("Usage: brainflux <SOURCE_FILE>"));
     Ok(())
 }
 
 #[test]
 fn run_with_argument() -> TestResult {
-    let mut cmd = Command::cargo_bin("brainfuck")?;
+    let mut cmd = Command::cargo_bin("brainflux")?;
     cmd.arg("tests/expected/empty.bf")
         .assert()
         .success();
+    Ok(())
+}
+#[test]
+fn hello_world() -> TestResult {
+    run("tests/expected/hello.bf", "Hello World!".to_string())?;
+    Ok(())
+}
+
+fn run(source_file: &str, expected_output: String) -> TestResult { 
+    let mut cmd = Command::cargo_bin("brainflux")?;
+    cmd.arg(source_file)
+        .assert()
+        .success()
+        .stdout(predicate::str::contains(expected_output));
     Ok(())
 }
