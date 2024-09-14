@@ -61,12 +61,8 @@ impl Interpreter {
         let mut loop_stack = Vec::new();
         while self.pp < tokens.len() {
             match tokens[self.pp] {
-                TokenType::IncrementPointer => {
-                    if self.dt.len() <= (self.dp + 2) {
-                        self.dt.resize(self.dp + 2, 0);
-                    }
-                    self.dp += 1;
-                },
+                TokenType::IncrementPointer => self.dp += 1,
+
                 TokenType::DecrementPointer => self.dp -= 1,
                 TokenType::IncrementValue => {
                     self.dt[self.dp] += 1;
