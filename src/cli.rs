@@ -8,10 +8,13 @@ pub type BrainFluxError<T> = Result<T, Box<dyn std::error::Error>>;
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// The source file that contains BrainFlux code
-    pub source_file: String,
+    source_file: String,
 }
 impl Args {
     pub fn open(&self, given_file: &str) -> BrainFluxError<Box <dyn BufRead>> {
         Ok(Box::new(BufReader::new(std::fs::File::open(given_file)?)))
+    }
+    pub fn get_source_file(&self) -> &String {
+        &self.source_file
     }
 }

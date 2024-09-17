@@ -29,7 +29,7 @@ impl Interpreter {
     }
     pub fn start(&mut self) -> BrainFluxError<()> {
         let args = Args::parse();
-        let mut file = args.open(&args.source_file)?;
+        let mut file = args.open(args.get_source_file())?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?; 
         self.run(&buf)?; 
@@ -58,15 +58,12 @@ impl Interpreter {
         Ok(tokens)
     }
     fn interpret(&mut self, tokens: &Vec<TokenType>) -> BrainFluxError<()> {
-        let mut loop_stack = Vec::new();
+        let mut loop_stack = Vec::with_capacity(16);
         while self.pp < tokens.len() {
             match tokens[self.pp] {
                 TokenType::IncrementPointer => self.dp += 1,
-
                 TokenType::DecrementPointer => self.dp -= 1,
-                TokenType::IncrementValue => {
-                    self.dt[self.dp] += 1;
-                },
+                TokenType::IncrementValue => self.dt[self.dp] += 1,
                 TokenType::DecrementValue => self.dt[self.dp] -= 1,
                 TokenType::StdOut => print!("{}", (self.dt[self.dp]) as char),
                 TokenType::StdIn => {
