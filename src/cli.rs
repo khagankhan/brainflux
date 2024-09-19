@@ -5,10 +5,16 @@ pub type BrainFluxError<T> = Result<T, Box<dyn std::error::Error>>;
 
 /// BrainFlux: Yet Another Implementation of the BrainFuck language: Highly optimized version
 #[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
+#[command(version="0.1.0", about="Yet another implementation of BrainFuck programming language", long_about = None)]
 pub struct Args {
     /// The source file that contains BrainFlux code
     source_file: String,
+    /// The implementation tier that is used
+    #[arg(short, long, default_value_t=String::from("interp"))]
+    test_target: String,
+    /// Print profile information for after execution
+    #[clap(long, short)]
+    profile: bool,
 }
 impl Args {
     pub fn open(&self, given_file: &str) -> BrainFluxError<Box <dyn BufRead>> {
@@ -16,5 +22,11 @@ impl Args {
     }
     pub fn get_source_file(&self) -> &String {
         &self.source_file
+    }
+    pub fn get_test_target(&self) -> &String {
+        &self.test_target
+    }
+    pub fn get_profile(&self) -> bool {
+        self.profile
     }
 }

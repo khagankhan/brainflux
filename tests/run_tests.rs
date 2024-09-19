@@ -25,6 +25,11 @@ fn hello_world() -> TestResult {
     run("tests/expected/hello.bf", "Hello World!".to_string())?;
     Ok(())
 }
+#[test]
+fn profiler_interpreter() -> TestResult {
+    run("tests/expected/loop_profiler.bf", "Must fail".to_string())?;
+    Ok(())
+}
 
 fn run(source_file: &str, expected_output: String) -> TestResult { 
     let mut cmd = Command::cargo_bin("brainflux")?;

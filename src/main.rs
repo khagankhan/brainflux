@@ -1,7 +1,7 @@
 use brainflux::cli::*;
-use brainflux::interpreter::*;
+use brainflux::implementation::*;
 fn main() -> BrainFluxError<()> {
-    let mut interpreter = Interpreter::new();
+    let mut interpreter = Implementation::new();
     interpreter.start()?;
     Ok(())
 }
