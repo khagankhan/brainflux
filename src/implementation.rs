@@ -70,7 +70,8 @@ impl Implementation {
         }
         Ok(tokens)
     }
-    pub fn token_to_char(&self, ttype:&TokenType) -> char {
+    /// Token types tp characters to display
+    pub fn token_to_char(ttype:&TokenType) -> char {
         match ttype {
             TokenType::IncrementPointer => '>',
             TokenType::DecrementPointer => '<',
@@ -80,7 +81,7 @@ impl Implementation {
             TokenType::StdIn => ',',
             TokenType::LoopStart => '[',
             TokenType::LoopEnd => ']',
-            TokenType::Nop => 'N',
+            TokenType::Nop => '*',
         }
     }
     /// The interpreter that runs the provided tokens
