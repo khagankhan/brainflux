@@ -1,13 +1,17 @@
 use crate::implementation::*;
 use crate::cli::*;
-use crate::optimization::*;
+use crate::profiler::*;
 use std::io::Read;
 pub struct Interpreter {}
 impl Interpreter {
     /// The interpreter that runs the provided tokens
-    pub fn interpret(interpreter: &mut Implementation, tokens: &Vec<TokenType>, print_profiler: bool) -> BrainFluxError<()> {
+    pub fn interpret(interpreter: &mut Implementation, tokens: &mut Vec<TokenType>, print_profiler: bool,  optimize: bool) -> BrainFluxError<()> {
         let mut loop_stack = Vec::with_capacity(16);
-        let mut profiler = Profiler::new(tokens);
+        let mut profiler = Profiler::with_tokens(tokens);
+        if optimize {
+            Profiler::zero_cell(tokens);
+        }
+        profiler.loop_profiling(tokens, print_profiler);
         while interpreter.pp < tokens.len() {
             let ttype = &tokens[interpreter.pp];
             profiler.count_executions(interpreter.pp, print_profiler);
@@ -60,11 +64,13 @@ impl Interpreter {
                         let _pp = loop_stack.pop(); 
                     }
                 },
+                TokenType::ZeroCell => {
+                    interpreter.dt[interpreter.dp] = 0;
+                },
                 TokenType::Nop => {},
             }
             interpreter.pp += 1;
         }
-        profiler.loop_profiling(print_profiler);
         profiler.print_profile(print_profiler);
         Ok(())
     }

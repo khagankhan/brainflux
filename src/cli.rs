@@ -15,6 +15,9 @@ pub struct Args {
     /// Print profile information for after execution
     #[clap(long, short)]
     profile: bool,
+    /// Do optimization
+    #[clap(long, short)]
+    optimize: bool,
 }
 impl Args {
     pub fn open(&self, given_file: &str) -> BrainFluxError<Box <dyn BufRead>> {
@@ -28,5 +31,8 @@ impl Args {
     }
     pub fn get_profile(&self) -> bool {
         self.profile
+    }
+    pub fn get_optimize(&self) -> bool {
+        self.optimize
     }
 }

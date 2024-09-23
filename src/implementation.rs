@@ -18,6 +18,8 @@ pub enum TokenType {
     StdIn,
     LoopStart,
     LoopEnd,
+    // Non-specificaton instructions
+    ZeroCell,
     Nop,
 }
 impl Implementation {
@@ -35,13 +37,14 @@ impl Implementation {
         file.read_to_end(&mut buf)?; 
         let test_target = args.get_test_target();
         let print_profiler = args.get_profile();
-        self.run(&buf, test_target, print_profiler)?; 
+        let optimize = args.get_optimize();
+        self.run(&buf, test_target, print_profiler, optimize)?; 
         Ok(())
     }
-    fn run(&mut self, source_file: &[u8], test_target: &str, print_profiler: bool) -> BrainFluxError<()> {
-        let tokens = self.tokenize(source_file)?;
+    fn run(&mut self, source_file: &[u8], test_target: &str, print_profiler: bool, optimize: bool) -> BrainFluxError<()> {
+        let mut tokens = self.tokenize(source_file)?;
         match test_target {
-            "interp" | "interpreter" => self.interpret(&tokens, print_profiler)?,
+            "interp" | "interpreter" => self.interpret(&mut tokens, print_profiler, optimize)?,
             "x86-64" | "x64" => self.x64_compiler(&tokens)?,
             "arm64" | "a64"  => self.arm_compiler(&tokens)?,
             "webassembly" | "wasm" => self.wasm_compiler(&tokens)?,
@@ -70,7 +73,7 @@ impl Implementation {
         }
         Ok(tokens)
     }
-    /// Token types tp characters to display
+    /// Token types to characters to display
     pub fn token_to_char(ttype:&TokenType) -> char {
         match ttype {
             TokenType::IncrementPointer => '>',
@@ -81,12 +84,25 @@ impl Implementation {
             TokenType::StdIn => ',',
             TokenType::LoopStart => '[',
             TokenType::LoopEnd => ']',
-            TokenType::Nop => '*',
+            _ => '*',
+        }
+    }
+    pub fn char_to_token(ttype: char) -> TokenType {
+        match ttype {
+            '>' => TokenType::IncrementPointer,
+            '<' => TokenType::DecrementPointer,
+            '+' => TokenType::IncrementValue,
+            '-' => TokenType::DecrementValue,
+            '.' => TokenType::StdOut,
+            ',' => TokenType::StdIn,
+            '[' => TokenType::LoopStart,
+            ']' => TokenType::LoopEnd,
+            _ => TokenType::Nop,
         }
     }
     /// The interpreter that runs the provided tokens
-    fn interpret(&mut self, tokens: &Vec<TokenType>, print_profiler: bool) -> BrainFluxError<()> {
-        Interpreter::interpret(self, tokens, print_profiler)?;
+    fn interpret(&mut self, tokens: &mut Vec<TokenType>, print_profiler: bool,  optimize: bool) -> BrainFluxError<()> {
+        Interpreter::interpret(self, tokens, print_profiler, optimize)?;
         Ok(())
     }
     /// Arm64 compiler that directly compiles to the Arm64 assembly code
@@ -99,7 +115,7 @@ impl Implementation {
         println!("Place Holder: x86-64 compiler will be implemented");
         Ok(())
     }  
-    /// wasm compiler that directly compiles to the Wasm code
+    /// Wasm compiler that directly compiles to the Wasm code
     fn wasm_compiler(&mut self, tokens: &Vec<TokenType>) -> BrainFluxError<()> {
         println!("Place Holder: Wasm compiler will be implemented");
         Ok(())
