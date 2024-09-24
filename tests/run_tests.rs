@@ -1,5 +1,5 @@
 use assert_cmd::Command;
-use predicates::{prelude::*, ord::ge};
+use predicates::prelude::*;
 use std::fs;
 
 type TestResult = Result<(), Box<dyn std::error::Error>>;

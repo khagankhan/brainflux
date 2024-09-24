@@ -1,3 +1,4 @@
+use crate::optimize::*;
 use crate::implementation::*;
 use crate::cli::*;
 use crate::profiler::*;
@@ -8,9 +9,7 @@ impl Interpreter {
     pub fn interpret(interpreter: &mut Implementation, tokens: &mut Vec<TokenType>, print_profiler: bool,  optimize: bool) -> BrainFluxError<()> {
         let mut loop_stack = Vec::with_capacity(16);
         let mut profiler = Profiler::with_tokens(tokens);
-        if optimize {
-            Profiler::zero_cell(tokens);
-        }
+        Optimize::pre_process_optimize(tokens, optimize)?;
         profiler.loop_profiling(tokens, print_profiler);
         while interpreter.pp < tokens.len() {
             let ttype = &tokens[interpreter.pp];
@@ -67,11 +66,17 @@ impl Interpreter {
                 TokenType::ZeroCell => {
                     interpreter.dt[interpreter.dp] = 0;
                 },
-                TokenType::Nop => {},
+                TokenType::IncrementValueN(n) => {
+                    interpreter.dt[interpreter.dp] += *n as u8;
+                },
+                TokenType::DecrementValueN(n) => {
+                    interpreter.dt[interpreter.dp] -= *n as u8;
+                },
+                _ => {},
             }
             interpreter.pp += 1;
         }
-        profiler.print_profile(print_profiler);
+        profiler.print_profile(print_profiler, optimize);
         Ok(())
     }
 }

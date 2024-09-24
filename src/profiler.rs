@@ -29,7 +29,7 @@ impl Profiler {
             non_simple_loop: vec![],
         }
     }
-    pub fn print_profile(&self, print_profiler: bool) {
+    pub fn print_profile(&self, print_profiler: bool, optimize: bool) {
         print!("\n");
         if print_profiler {
             for (index, tuple) in self.count_vector.iter().enumerate() {
@@ -66,7 +66,14 @@ impl Profiler {
                println!("{}     {:<35}     {}", index, character, count);
            }
         }
+        if optimize {
+            println!("*************************************************************************************************");
+            println!("* [!] WARNING: Optimize flag is set: The tokens have been changed in pre-process optimizations. *");
+            println!("* Please, avoid using --optimize/-o flag with profiler flags for more correct results.          *");
+            println!("*************************************************************************************************");
+
         }
+    }
     pub fn count_executions(&mut self, index: usize, print_profiler: bool) {
         if print_profiler {
             self.count_vector[index].1 += 1;
@@ -76,25 +83,6 @@ impl Profiler {
         if print_profiler {
             self.find_innermost_loop(tokens);
             self.simple_loop(tokens);
-        }
-    }
-    pub fn zero_cell(tokens: &mut Vec<TokenType>) {
-        let count_len = tokens.len();
-        for index in 0..count_len.saturating_sub(2) {
-            if let (Some(current_char), Some(next_char), Some(next_next_char)) = (
-                tokens.get(index),
-                tokens.get(index + 1),
-                tokens.get(index + 2),
-            ) {
-                if *current_char == TokenType::LoopStart 
-                    && (*next_char == TokenType::IncrementValue || *next_char == TokenType::DecrementValue) 
-                    && *next_next_char == TokenType::LoopEnd 
-                {
-                    tokens[index] = TokenType::ZeroCell;
-                    tokens[index + 1] = TokenType::Nop;
-                    tokens[index + 2] = TokenType::Nop;
-                }
-            }
         }
     }
     fn find_innermost_loop(&mut self, tokens: &mut Vec<TokenType>/* Add reference to vector of tokens here like zerocell */) {

@@ -1,6 +1,6 @@
 use crate::implementation::*;
 use crate::cli::*;
-use crate::profiler::*;
+use crate::optimize::*;
 use std::fs::File;
 use std::io::Write;
 pub struct ArmCompiler;
@@ -8,7 +8,7 @@ pub struct ArmCompiler;
 impl ArmCompiler {
     pub fn arm_compiler(tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()> {
 
-        Self::pre_process_optimize(tokens, optimize);
+        Optimize::pre_process_optimize(tokens, optimize)?;
         
         let mut assembly = String::from(
             "\t.text\n\
@@ -79,6 +79,16 @@ impl ArmCompiler {
                     assembly.push_str("    eor w1, w1, w1\n");
                     assembly.push_str("    strb w1, [x19]\n");
                 },
+                TokenType::IncrementValueN(n) => {
+                    assembly.push_str("    ldrb w1, [x19]\n");
+                    assembly.push_str(&format!("    add w1, w1, #{}\n", n));
+                    assembly.push_str("    strb w1, [x19]\n");
+                },
+                TokenType::DecrementValueN(n) => {
+                    assembly.push_str("    ldrb w1, [x19]\n");
+                    assembly.push_str(&format!("    sub w1, w1, #{}\n", n));
+                    assembly.push_str("    strb w1, [x19]\n");
+                },
                 _=> {},
             }
         }
@@ -101,13 +111,8 @@ impl ArmCompiler {
         file.write_all(assembly.as_bytes())?;
         Ok(())
     }
-    fn pre_process_optimize(tokens: &mut Vec<TokenType>, optimize: bool) {
-        if optimize {
-            Profiler::zero_cell(tokens);
-        }
-    }
     fn post_process_optimize(assembly: &mut String) {
-        Self::sum_pointer_changes(assembly);
+       Self::sum_pointer_changes(assembly);
     }    
     fn sum_pointer_changes(assembly: &mut String) {
         let mut optimized_assembly = String::new();
@@ -141,5 +146,5 @@ impl ArmCompiler {
             }
         }
         *assembly = optimized_assembly;
-    }
+    }    
 }

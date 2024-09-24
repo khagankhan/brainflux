@@ -21,6 +21,10 @@ pub enum TokenType {
     // Non-specificaton instructions
     ZeroCell,
     Nop,
+    IncrementValueN(i32),
+    DecrementValueN(i32),
+    IncrementPointerN(i32),
+    DecrementPointerN(i32),
 }
 impl Implementation {
     pub fn new() -> Self {
