@@ -12,7 +12,7 @@ pub struct Args {
     /// The implementation tier that is used
     #[arg(short, long, default_value_t=String::from("interp"))]
     test_target: String,
-    /// Print profile information for after execution
+    /// Print profile information for after execution. Works with -t interp only (which is default)
     #[clap(long, short)]
     profile: bool,
     /// Do optimization

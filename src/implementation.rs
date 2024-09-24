@@ -1,4 +1,4 @@
-use crate::{cli::*, interpreter::Interpreter};
+use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler};
 use clap::Parser;
 use std::{io::Read};
 
@@ -46,7 +46,7 @@ impl Implementation {
         match test_target {
             "interp" | "interpreter" => self.interpret(&mut tokens, print_profiler, optimize)?,
             "x86-64" | "x64" => self.x64_compiler(&tokens)?,
-            "arm64" | "a64"  => self.arm_compiler(&tokens)?,
+            "arm64" | "a64"  => self.arm_compiler(&mut tokens, optimize)?,
             "webassembly" | "wasm" => self.wasm_compiler(&tokens)?,
             _ => {
                 eprintln!("[-] Error: Invalid target.\n[+]Usage: --test-target <interp/x86-64/arm64/wasm>");
@@ -106,8 +106,8 @@ impl Implementation {
         Ok(())
     }
     /// Arm64 compiler that directly compiles to the Arm64 assembly code
-    fn arm_compiler(&mut self, tokens: &Vec<TokenType>) -> BrainFluxError<()> {
-        println!("Place Holder: Arm compiler will be implemented");
+    fn arm_compiler(&mut self, tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()> {
+        ArmCompiler::arm_compiler(tokens, optimize)?;
         Ok(())
     }    
     /// x64 compiler that directly compiles to the x86-644 assembly code
