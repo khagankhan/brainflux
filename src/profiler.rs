@@ -59,7 +59,7 @@ impl Profiler {
                 .iter()
                 .map(|item| Implementation::token_to_char(&item.0)) // Assuming item.0 is a char
                 .collect();
-                simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+                non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
            }
            non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
            for (index, character, count) in &non_simple_loop_chars {
