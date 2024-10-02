@@ -29,13 +29,22 @@ impl Profiler {
             non_simple_loop: vec![],
         }
     }
+    pub fn get_simple_loops(&self) -> &Vec<(usize, usize)> {
+        &self.simple_loop
+    }
+    pub fn update_tokens(&mut self, tokens: &mut Vec<TokenType>) {
+        for i in 0..tokens.len() {
+            self.count_vector[i].0 = tokens[i].clone();
+        }
+    }
+    pub fn print_number_of_executions(&self) {
+        for (index, tuple) in self.count_vector.iter().enumerate() {
+            println!("{:<5}|    {:<3}|  {:<5}", index, Implementation::token_to_char(&tuple.0), tuple.1);
+    }
+    }
     pub fn print_profile(&self, print_profiler: bool, optimize: bool) {
         print!("\n");
         if print_profiler {
-            for (index, tuple) in self.count_vector.iter().enumerate() {
-                println!("{:<5}|    {:<3}|  {:<5}", index, Implementation::token_to_char(&tuple.0), tuple.1);
-           }
-
            println!("-----------------------------------");
            println!("Simple innermost loops:");
            let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
@@ -50,7 +59,6 @@ impl Profiler {
            for (index, character, count) in &simple_loop_chars {
                println!("{}     {:<35}     {}", index, character, count);
            }
-
            println!("-----------------------------------");
            println!("Non_imple innermost loops:");
            let mut non_simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
@@ -71,7 +79,6 @@ impl Profiler {
             println!("* [!] WARNING: Optimize flag is set: The tokens have been changed in pre-process optimizations. *");
             println!("* Please, avoid using --optimize/-o flag with profiler flags for more correct results.          *");
             println!("*************************************************************************************************");
-
         }
     }
     pub fn count_executions(&mut self, index: usize, print_profiler: bool) {
@@ -79,11 +86,11 @@ impl Profiler {
             self.count_vector[index].1 += 1;
         }
     }
-    pub fn loop_profiling(&mut self, tokens: &mut Vec<TokenType>, print_profiler: bool) {
-        if print_profiler {
+    pub fn loop_profiling(&mut self, tokens: &mut Vec<TokenType>) {
+            self.inner_most.clear();
+            self.simple_loop.clear();
             self.find_innermost_loop(tokens);
             self.simple_loop(tokens);
-        }
     }
     fn find_innermost_loop(&mut self, tokens: &mut Vec<TokenType>/* Add reference to vector of tokens here like zerocell */) {
         let mut stack: Vec<(TokenType, usize)> = Vec::new(); // Stack to track '(' and their indices
@@ -121,16 +128,46 @@ impl Profiler {
     }
     fn is_simple_loop(&self, chars: &Vec<TokenType>) -> bool {
         let mut pointer_change = 0;
-        let mut modifies_cell = false;
+        let mut cell_modifications = 0;  // Track modifications to p[0] (should be +1 or -1)
+        let mut loop_start = 0;
+        let mut loop_end = 0;
         for ch in chars {
             match ch {
-                TokenType::StdOut | TokenType::StdIn => return false, // No I/O allowed
-                TokenType::DecrementPointer => pointer_change -= 1, // Moving pointer left
-                TokenType::IncrementPointer => pointer_change += 1, // Moving pointer right
-                TokenType::IncrementValue | TokenType::DecrementValue => modifies_cell = true, // Modifies p[0]
-                _ => {} // Ignore other commandnns
+                TokenType::LoopStart => {
+                    loop_start += 1;
+                },
+                TokenType::LoopEnd => {
+                    loop_end += 1;
+                },
+                TokenType::StdOut | TokenType::StdIn => return false,      // No I/O allowed
+                TokenType::DecrementPointer => pointer_change -= 1,        // Moving pointer left
+                TokenType::IncrementPointer => pointer_change += 1,        // Moving pointer right
+                TokenType::IncrementValue => {                             // Incrementing p[0] by 1
+                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                        cell_modifications += 1;
+                    }
+                }
+                TokenType::DecrementValue => {                             // Decrementing p[0] by 1
+                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                        cell_modifications -= 1;
+                    }
+                }
+                TokenType::DecrementPointerN(n) => pointer_change -= n,        // Moving pointer left
+                TokenType::IncrementPointerN(n) => pointer_change += n,        // Moving pointer right
+                TokenType::IncrementValueN(n) => {                             // Incrementing p[0] by 1
+                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                        cell_modifications += n;
+                    }
+                }
+                TokenType::DecrementValueN(n) => {                             // Decrementing p[0] by 1
+                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                        cell_modifications -= n;
+                    }
+                }
+                _ => {} // Ignore other commands
             }
         }
-        pointer_change == 0 && modifies_cell
+        pointer_change == 0 && (cell_modifications == 1 || cell_modifications == -1) && (loop_start == 1 && loop_end == 1)
     }
+    
 }

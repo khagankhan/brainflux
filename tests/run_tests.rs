@@ -26,20 +26,8 @@ fn hello_world_interp() -> TestResult {
     Ok(())
 }
 #[test]
-fn run_arm64_with_argument() -> TestResult {
-    let mut cmd = Command::cargo_bin("brainflux")?;
-    cmd.args(vec!["--test-target", "arm64", "tests/expected/empty.bf"])
-        .assert()
-        .success();
-    Ok(())
-}
-#[test]
-fn hello_world_arm64() -> TestResult {
-    let expected = fs::read_to_string("tests/outputs/hello.s")?;
-    let mut cmd = Command::cargo_bin("brainflux")?;
-    cmd.args(vec!["--test-target", "arm64", "tests/expected/hello.bf"]);
-    let generated = fs::read_to_string("./output.s")?;
-    assert_eq!(expected, generated);
+fn benches_ok() -> TestResult {
+    run(vec!["tests/expected/bench.b"], "OK".to_string())?;
     Ok(())
 }
 #[test]
@@ -48,7 +36,24 @@ fn profiler_interpreter() -> TestResult {
     run(vec!["-p", "tests/expected/loop_profiler.bf"], expected)?;
     Ok(())
 }
-
+// ARM64 Compiler tests:
+#[test]
+fn run_arm64_with_argument() -> TestResult {
+    let mut cmd = Command::cargo_bin("brainflux")?;
+    cmd.args(vec!["--test-target", "arm64", "tests/expected/empty.bf"])
+        .assert()
+        .success();
+    Ok(())
+}
+#[test]
+fn hello_world_optimized_arm64() -> TestResult {
+    let expected = fs::read_to_string("tests/outputs/hello_optimized.s")?;
+    let mut cmd = Command::cargo_bin("brainflux")?;
+    cmd.args(vec!["--test-target", "arm64", "tests/expected/hello.bf"]);
+    let generated = fs::read_to_string("./hello.s")?;
+    assert_eq!(expected, generated);
+    Ok(())
+}
 fn run(source_file: Vec::<&str>, expected_output: String) -> TestResult { 
     let mut cmd = Command::cargo_bin("brainflux")?;
     cmd.args(source_file)

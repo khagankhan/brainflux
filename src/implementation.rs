@@ -1,6 +1,6 @@
 use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler};
 use clap::Parser;
-use std::{io::Read};
+use std::io::Read;
 
 #[derive(Debug)]
 pub struct Implementation {
@@ -25,6 +25,9 @@ pub enum TokenType {
     DecrementValueN(i32),
     IncrementPointerN(i32),
     DecrementPointerN(i32),
+    SimpleRightLeft(i32, i32),
+    SimpleLeftRight(i32, i32),
+    SimpleTwoTargetLeftRight(i32, i32, i32, i32)
 }
 impl Implementation {
     pub fn new() -> Self {
@@ -72,6 +75,7 @@ impl Implementation {
                 b',' => tokens.push(TokenType::StdIn),
                 b'[' => tokens.push(TokenType::LoopStart),
                 b']' => tokens.push(TokenType::LoopEnd),
+                b'*' => tokens.push(TokenType::Nop),
                 _ => {},
             }
         }
@@ -88,7 +92,15 @@ impl Implementation {
             TokenType::StdIn => ',',
             TokenType::LoopStart => '[',
             TokenType::LoopEnd => ']',
-            _ => '*',
+            TokenType::DecrementPointerN(_) => 'd',
+            TokenType::IncrementPointerN(_) => 'i',
+            TokenType::DecrementValueN(_) => 'D',
+            TokenType::IncrementValueN(_) => 'I',
+            TokenType::SimpleRightLeft(_, _) => 'L',
+            TokenType::SimpleLeftRight(_, _) => 'R',
+            TokenType::ZeroCell => '0',
+            TokenType::SimpleTwoTargetLeftRight(_, _, _, _) => 'T',
+            TokenType::Nop=> ' ',
         }
     }
     pub fn char_to_token(ttype: char) -> TokenType {

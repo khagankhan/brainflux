@@ -1,15 +1,21 @@
 use crate::implementation::*;
 use crate::cli::*;
 use crate::optimize::*;
+use crate::profiler::Profiler;
 use std::fs::File;
 use std::io::Write;
 pub struct ArmCompiler;
 
 impl ArmCompiler {
     pub fn arm_compiler(tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()> {
-
-        Optimize::pre_process_optimize(tokens, optimize)?;
-        
+        let mut profiler = Profiler::with_tokens(tokens);
+        let mut n = 0;
+        while n < 5 {
+            profiler.loop_profiling(tokens);
+            Optimize::pre_process_optimize(tokens, optimize)?;
+            n += 1;
+        }
+        println!("{:#?}", tokens);
         let mut assembly = String::from(
             "\t.text\n\
             \t.align 2\n\
@@ -74,6 +80,7 @@ impl ArmCompiler {
                         assembly.push_str(&format!("    {}:\n", loop_end_label));
                     }
                 },
+                // Optimizations
                 TokenType::ZeroCell => {
                     assembly.push_str("    ldrb w1, [x19]\n");
                     assembly.push_str("    eor w1, w1, w1\n");
@@ -89,6 +96,12 @@ impl ArmCompiler {
                     assembly.push_str(&format!("    sub w1, w1, #{}\n", n));
                     assembly.push_str("    strb w1, [x19]\n");
                 },
+                TokenType::IncrementPointerN(n) => {
+                    assembly.push_str(&format!("    add x19, x19, #{}\n", n));
+                },
+                TokenType::DecrementPointerN(n) => {
+                    assembly.push_str(&format!("    sub x19, x19, #{}\n", n));
+                },
                 _=> {},
             }
         }
@@ -99,52 +112,12 @@ impl ArmCompiler {
             bl _free\n\
             ldp x19, x20, [sp], #16\n\
             ldp x29, x30, [sp], #16\n\
-            ret\n\
             eor w0, w0, w0\n\
             ret\n\
             "
         );
-        if optimize {
-            Self::post_process_optimize(&mut assembly);
-        }
         let mut file = File::create("output.s")?;
         file.write_all(assembly.as_bytes())?;
         Ok(())
     }
-    fn post_process_optimize(assembly: &mut String) {
-       Self::sum_pointer_changes(assembly);
-    }    
-    fn sum_pointer_changes(assembly: &mut String) {
-        let mut optimized_assembly = String::new();
-        let mut lines = assembly.lines();
-        let mut pointer_increment: i32 = 0;
-   
-        while let Some(line) = lines.next() {
-            if line.contains("add x19, x19, #1") {
-                pointer_increment += 1;
-                continue;
-            } else if line.contains("sub x19, x19, #1") {
-                pointer_increment -= 1;
-                continue;
-            }
-            if pointer_increment != 0 {
-                if pointer_increment > 0 {
-                    optimized_assembly.push_str(&format!("    add x19, x19, #{}\n", pointer_increment));
-                } else {
-                    optimized_assembly.push_str(&format!("    sub x19, x19, #{}\n", pointer_increment.abs()));
-                }
-                pointer_increment = 0;
-            }
-            optimized_assembly.push_str(line);
-            optimized_assembly.push('\n');
-        }
-        if pointer_increment != 0 {
-            if pointer_increment > 0 {
-                optimized_assembly.push_str(&format!("    add x19, x19, #{}\n", pointer_increment));
-            } else {
-                optimized_assembly.push_str(&format!("    sub x19, x19, #{}\n", pointer_increment.abs()));
-            }
-        }
-        *assembly = optimized_assembly;
-    }    
 }
