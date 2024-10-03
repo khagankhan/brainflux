@@ -1,5 +1,6 @@
 use crate::cli::*;
 use crate::implementation::*;
+use crate::profiler::*;
 pub struct Optimize;
 
 impl Optimize {
@@ -214,5 +215,71 @@ impl Optimize {
         }
         Ok(())
     }
-
+    pub fn simple_loop_optimization(profiler: &Profiler, tokens: &mut Vec<TokenType>) -> BrainFluxError<()> {
+        // Iterate through all simple loops identified by the profiler
+        for (start, end) in profiler.get_simple_loops() {
+            let loop_tokens = &tokens[*start..=*end];
+            
+            if Self::is_zero_and_modify_loop(loop_tokens.to_vec().clone()) {
+                let target_offset = Self::calculate_target_offset(loop_tokens.to_vec().clone());
+                let value_change = Self::calculate_value_change(loop_tokens.to_vec().clone());
+    
+                tokens[*start] = TokenType::ZeroAndModify(target_offset, value_change);
+                
+                for i in (*start + 1)..=*end {
+                    // TODO: if design choice changed update this.
+                    match tokens[i] {
+                        _ => tokens[i] = TokenType::Nop,
+                    }
+                }
+            }
+        }
+        
+        Ok(())
+    }
+    // Checks if the loop is of the form: {LoopStart, DecrementValueN(1), ...}
+    fn is_zero_and_modify_loop(mut loop_tokens: Vec<TokenType>) -> bool {
+        // Example pattern: [-<+>], [-<<+>>]
+        loop_tokens.retain(|token|
+            match token {
+                TokenType::Nop => false,
+                _ => true,
+            }
+        );
+        if loop_tokens.len() < 6 {
+            return false;
+        }
+        matches!(loop_tokens[0], TokenType::LoopStart) &&
+        matches!(loop_tokens[1], TokenType::DecrementValueN(1)) &&
+        matches!(loop_tokens[2], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
+        matches!(loop_tokens[3], TokenType::IncrementValueN(_) | TokenType::DecrementValueN(_)) &&
+        matches!(loop_tokens[4], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
+        matches!(loop_tokens[5], TokenType::LoopEnd)
+    }
+    fn calculate_target_offset(mut loop_tokens: Vec<TokenType>) -> i32 {
+        loop_tokens.retain(|token|
+            match token {
+                TokenType::Nop => false,
+                _ => true,
+            }
+        );
+        match loop_tokens[2] {
+            TokenType::IncrementPointerN(n) => n,
+            TokenType::DecrementPointerN(n) => -n,
+            _ => 0,
+        }
+    }
+    fn calculate_value_change(mut loop_tokens: Vec<TokenType>) -> i32 {
+        loop_tokens.retain(|token|
+            match token {
+                TokenType::Nop => false,
+                _ => true,
+            }
+        );
+        match loop_tokens[3] {
+            TokenType::IncrementValueN(m)  => m,
+            TokenType::DecrementValueN(m) => -m,
+            _ => 0,
+        }
+    }
 }

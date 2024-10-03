@@ -10,12 +10,15 @@ impl ArmCompiler {
     pub fn arm_compiler(tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()> {
         let mut profiler = Profiler::with_tokens(tokens);
         let mut n = 0;
-        while n < 5 {
+        while n < 1 {
+            println!("{:#?}", tokens);
             profiler.loop_profiling(tokens);
             Optimize::pre_process_optimize(tokens, optimize)?;
+            Optimize::simple_loop_optimization(&profiler, tokens)?;
             n += 1;
         }
         println!("{:#?}", tokens);
+        profiler.print_profile(true);
         let mut assembly = String::from(
             "\t.text\n\
             \t.align 2\n\

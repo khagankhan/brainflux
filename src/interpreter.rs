@@ -86,7 +86,7 @@ impl Interpreter {
             }
             interpreter.pp += 1;
         }
-        profiler.print_profile(print_profiler, optimize);
+        profiler.print_profile(print_profiler);
         //profiler.update_tokens(tokens);
         //profiler.loop_profiling(tokens);
         //profiler.print_profile(print_profiler, optimize);

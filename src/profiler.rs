@@ -40,9 +40,9 @@ impl Profiler {
     pub fn print_number_of_executions(&self) {
         for (index, tuple) in self.count_vector.iter().enumerate() {
             println!("{:<5}|    {:<3}|  {:<5}", index, Implementation::token_to_char(&tuple.0), tuple.1);
+        }
     }
-    }
-    pub fn print_profile(&self, print_profiler: bool, optimize: bool) {
+    pub fn print_profile(&self, print_profiler: bool) {
         print!("\n");
         if print_profiler {
            println!("-----------------------------------");
@@ -73,12 +73,6 @@ impl Profiler {
            for (index, character, count) in &non_simple_loop_chars {
                println!("{}     {:<35}     {}", index, character, count);
            }
-        }
-        if optimize {
-            println!("*************************************************************************************************");
-            println!("* [!] WARNING: Optimize flag is set: The tokens have been changed in pre-process optimizations. *");
-            println!("* Please, avoid using --optimize/-o flag with profiler flags for more correct results.          *");
-            println!("*************************************************************************************************");
         }
     }
     pub fn count_executions(&mut self, index: usize, print_profiler: bool) {

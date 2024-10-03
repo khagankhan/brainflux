@@ -25,8 +25,7 @@ pub enum TokenType {
     DecrementValueN(i32),
     IncrementPointerN(i32),
     DecrementPointerN(i32),
-    SimpleRightLeft(i32, i32),
-    SimpleLeftRight(i32, i32),
+    ZeroAndModify(i32,i32),
     SimpleTwoTargetLeftRight(i32, i32, i32, i32)
 }
 impl Implementation {
@@ -92,15 +91,14 @@ impl Implementation {
             TokenType::StdIn => ',',
             TokenType::LoopStart => '[',
             TokenType::LoopEnd => ']',
-            TokenType::DecrementPointerN(_) => 'd',
-            TokenType::IncrementPointerN(_) => 'i',
-            TokenType::DecrementValueN(_) => 'D',
-            TokenType::IncrementValueN(_) => 'I',
-            TokenType::SimpleRightLeft(_, _) => 'L',
-            TokenType::SimpleLeftRight(_, _) => 'R',
+            TokenType::DecrementPointerN(_) => '<',
+            TokenType::IncrementPointerN(_) => '>',
+            TokenType::DecrementValueN(_) => '-',
+            TokenType::IncrementValueN(_) => '+',
+            TokenType::ZeroAndModify(_, _) => 'L',
             TokenType::ZeroCell => '0',
             TokenType::SimpleTwoTargetLeftRight(_, _, _, _) => 'T',
-            TokenType::Nop=> ' ',
+            TokenType::Nop=> '!',
         }
     }
     pub fn char_to_token(ttype: char) -> TokenType {
