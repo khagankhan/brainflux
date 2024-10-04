@@ -17,7 +17,7 @@ pub struct Args {
     profile: bool,
     /// Do optimization
     #[clap(long, short)]
-    optimize: bool,
+    optimize: bool, // Will be updated from bool to the number ofthe passes: O1, O2, O3 
 }
 impl Args {
     pub fn open(&self, given_file: &str) -> BrainFluxError<Box <dyn BufRead>> {

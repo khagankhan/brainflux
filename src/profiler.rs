@@ -85,19 +85,22 @@ impl Profiler {
            }
         }
     }
+    // For interpreter mode, it can show us how many times a given token is executed
+    // You can see sometimes a token just executed thousands of times that can be optimized
     pub fn count_executions(&mut self, index: usize, print_profiler: bool) {
         if print_profiler {
             self.count_vector[index].1 += 1;
         }
     }
     pub fn loop_profiling(&mut self, tokens: &mut Vec<TokenType>) {
+            // Clear the previous profilers after each phase of optimization
             self.inner_most.clear();
             self.simple_loop.clear();
             self.find_innermost_loop(tokens);
             self.simple_loop(tokens);
     }
-    fn find_innermost_loop(&mut self, tokens: &mut Vec<TokenType>/* Add reference to vector of tokens here like zerocell */) {
-        let mut stack: Vec<(TokenType, usize)> = Vec::new(); // Stack to track '(' and their indices
+    fn find_innermost_loop(&mut self, tokens: &mut Vec<TokenType>) {
+        let mut stack: Vec<(TokenType, usize)> = Vec::new();
         let mut loop_level = 0;
         let mut previous_loop_level = -1;
         for mut index in 0..tokens.len() {
@@ -108,7 +111,7 @@ impl Profiler {
             } else if let Some (TokenType::LoopEnd) = tokens.get(index) {
                 let popped_index = stack.pop().unwrap();
                 loop_level -= 1;
-                if loop_level == previous_loop_level {
+                if loop_level == previous_loop_level { // This is the core. If the loop level is staying the same so there is no inner loop.
                     self.inner_most.push((popped_index.1, index));
                 }
                 while index <tokens.len() - 1 && !stack.is_empty() {
@@ -117,7 +120,7 @@ impl Profiler {
             }
         }
     }
-    fn simple_loop(&mut self, tokens: &mut Vec<TokenType> /* Add reference to vector of tokens here like zerocell */) {
+    fn simple_loop(&mut self, tokens: &mut Vec<TokenType>) {
         for index in self.inner_most.iter() {
             let types: Vec<TokenType> = tokens[index.0..=index.1]
                 .iter()
@@ -131,9 +134,9 @@ impl Profiler {
         }
     }
     fn is_simple_loop(&self, chars: &Vec<TokenType>) -> bool {
-        let mut pointer_change = 0;
-        let mut cell_modifications = 0;  // Track modifications to p[0] (should be +1 or -1)
-        let mut loop_start = 0;
+        let mut pointer_change = 0; // Pointer change should be zero in the end
+        let mut cell_modifications = 0;  // Track modifications to p[0] (should be +1 or -1 to be zeroed)
+        let mut loop_start = 0; // It should have one loop which is itself
         let mut loop_end = 0;
         for ch in chars {
             match ch {

@@ -11,13 +11,13 @@ impl ArmCompiler {
         let mut profiler = Profiler::with_tokens(tokens);
         let mut n = 0;
         while n < 1 {
-            println!("{:#?}", tokens);
             profiler.loop_profiling(tokens);
-            Optimize::pre_process_optimize(tokens, optimize, &profiler)?;
-            Optimize::simple_loop_optimization(&profiler, tokens)?;
+            Optimize::phase1(tokens, optimize, &profiler)?;
             n += 1;
         }
         println!("{:#?}", tokens);
+        profiler.print_profile(true, &tokens);
+        profiler.loop_profiling(tokens);
         profiler.print_profile(true, &tokens);
         let mut assembly = String::from(
             "\t.text\n\
@@ -84,11 +84,6 @@ impl ArmCompiler {
                     }
                 },
                 // Optimizations
-                TokenType::ZeroCell => {
-                    assembly.push_str("    ldrb w1, [x19]\n");
-                    assembly.push_str("    eor w1, w1, w1\n");
-                    assembly.push_str("    strb w1, [x19]\n");
-                },
                 TokenType::IncrementValueN(n) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
                     assembly.push_str(&format!("    add w1, w1, #{}\n", n));
@@ -104,33 +99,36 @@ impl ArmCompiler {
                 },
                 TokenType::DecrementPointerN(n) => {
                     assembly.push_str(&format!("    sub x19, x19, #{}\n", n));
-                },
-                TokenType::ZeroAndModify(n, m) => {
+                },       
+                TokenType::ZeroAndModify(modifications) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
-
                     assembly.push_str("    eor w2, w2, w2\n");  
                     assembly.push_str("    strb w2, [x19]\n");
-                
-                    assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load with offset
-                    if *m == 1 {
-                        // Direct addition: w2 += w1
-                        assembly.push_str("    add w2, w2, w1\n");  // w2 = w2 + w1
-                    } else if *m == -1 {
-                        // Direct subtraction: w2 -= w1
-                        assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
-                    } else if *m > 1 {
-                        // For values of m > 1, add the result of w1 * m to w2
-                        assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
-                        assembly.push_str("    mul w3, w1, w3\n");            // w3 = w1 * m
-                        assembly.push_str("    add w2, w2, w3\n");            // w2 = w2 + w3
-                    } else if *m < -1 {
-                        // For values of m < -1, subtract the result of w1 * -m from w2
-                        assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
-                        assembly.push_str("    mul w3, w1, w3\n");             // w3 = w1 * -m
-                        assembly.push_str("    sub w2, w2, w3\n");             // w2 = w2 - w3
+
+                    for i in 0..modifications.len() {
+                        let n = modifications[i].0;
+                        let m = modifications[i].1;
+                        if n == 0 {
+                            continue;
+                        }
+                        assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load with offset
+                        if m == 1 {
+                            // Direct addition: w2 += w1
+                            assembly.push_str("    add w2, w2, w1\n");  // w2 = w2 + w1
+                        } else if m == -1 {
+                            // Direct subtraction: w2 -= w1
+                            assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
+                        } else if m > 1 {
+                            assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
+                            assembly.push_str("    madd w2, w1, w3, w2\n");  // w2 = (w1 * w3) + w2
+    
+                        } else if m < -1 {
+                            assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
+                            assembly.push_str("    msub w2, w1, w3, w2\n");  // w2 = (w1 * w3) - w2
+                        }
+                        assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n)); // Store back with offset
                     }
-                    assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n));
-                },              
+                },                     
                 TokenType::Nop => {},
             }
         }

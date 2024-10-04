@@ -4,53 +4,26 @@ use crate::profiler::*;
 pub struct Optimize;
 
 impl Optimize {
-    pub fn pre_process_optimize(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
+    pub fn phase1(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
         if optimize {
+            // Increment and decrement should be done first
             Self::sum_increment_decrement_values(tokens)?;
             Self::sum_increment_decrement_pointers(tokens)?;
-            Self::zero_cell(tokens)?;
-            //Self::simple_loop_optimization(profiler, tokens)?;
+            // Then we can do the loop optimizations
+            Self::simple_loop_optimization(profiler, tokens)?;
         }
         Ok(())
     }
-    fn zero_cell(tokens: &mut Vec<TokenType>) -> BrainFluxError<()> {
-        let count_len = tokens.len();
-        let mut index = 0;
-    
-        while index < count_len.saturating_sub(2) {
-            // Skip Nop and ZeroCell tokens
-            if tokens[index] == TokenType::Nop {
-                index += 1;
-                continue;
-            }
-    
-            if let (Some(current_char), Some(next_char), Some(next_next_char)) = (
-                tokens.get(index),
-                tokens.get(index + 1),
-                tokens.get(index + 2),
-            ) {
-                // Only recognize patterns that do not include Nop or ZeroCell
-                if *current_char == TokenType::LoopStart 
-                    && (*next_char == TokenType::IncrementValue || *next_char == TokenType::DecrementValue ||
-                        *next_char == TokenType::IncrementValueN(1) || *next_char == TokenType::DecrementValueN(1)) 
-                    && *next_next_char == TokenType::LoopEnd 
-                {
-                    tokens[index] = TokenType::ZeroCell;
-                    tokens[index + 1] = TokenType::Nop;
-                    tokens[index + 2] = TokenType::Nop;
-                }
-            }
-            
-            index += 1;
-        }
-        Ok(())
-    }    
+    // The following sum_increment_decrement_pointers and the sum_increment_decrement_values
+    // Just sums up the number of consecutive Increments to IncrementN(n) token and then supersedes the
+    // index of the first Increment/Decrement token with update IncrementN/DecrementN token
+    // and alters the rest with Nops
     fn sum_increment_decrement_pointers(tokens: &mut Vec<TokenType>) -> BrainFluxError<()>{
-        let mut increment_pointer = 0;     // For consecutive IncrementValue tokens
-        let mut decrement_pointer = 0;     // For consecutive DecrementValue tokens
+        let mut increment_pointer = 0;    
+        let mut decrement_pointer = 0;    
     
-        let mut increment_pointer_start: Option<usize> = None;  // Track the first IncrementValue index
-        let mut decrement_pointer_start: Option<usize> = None;  // Track the first DecrementValue index
+        let mut increment_pointer_start: Option<usize> = None;  
+        let mut decrement_pointer_start: Option<usize> = None;  
 
         for index in 0..tokens.len() {
             match tokens[index] {
@@ -87,7 +60,6 @@ impl Optimize {
                         increment_pointer_start = None;
                     }
                 }
-                TokenType::Nop => {},
                 _ => {
                     if increment_pointer > 0 {
                         if let Some(start_idx) = increment_pointer_start {
@@ -216,6 +188,16 @@ impl Optimize {
         }
         Ok(())
     }
+    /*
+    * This is how Zero and Modify Simple loop works:
+    * 1. Profiler struct has simple_loop vector that holds a vector of tuples; a tuple in turn holds start and 
+    * end index of all the simple loops in the source code. (That is why, I add Nop instead of removing the optimized
+    * tokens; I can access the right index everytime. Another reason is that removing is expensive.)
+    * 2. Then the new vectors are created based on those indexes. I filter out Nops so I can only "valid" tokens.
+    * 3. When calculate multi modifications function sees increment or decrement value it pushes the <offset, value> pair
+    * to the ZeroModify token.
+    * 4. Finally, the index of the LoopStart token is superseded by the ZeroAndModify token, and the rest is altered with Nop.
+    */
     pub fn simple_loop_optimization(profiler: &Profiler, tokens: &mut Vec<TokenType>) -> BrainFluxError<()> {
         // Iterate through all simple loops identified by the profiler
         for (start, end) in profiler.get_simple_loops() {
@@ -225,56 +207,40 @@ impl Optimize {
                 .filter(|token| !matches!(token, TokenType::Nop))
                 .cloned()
                 .collect();
-    
-            // If the loop is of the form [-<+>], etc., apply optimization
-            if Self::is_zero_and_modify_loop(&loop_tokens) {
-                let target_offset = Self::calculate_target_offset(&loop_tokens);
-                let value_change = Self::calculate_value_change(&loop_tokens);
-    
-                // Replace the first token with ZeroAndModify
-                tokens[*start] = TokenType::ZeroAndModify(target_offset, value_change);
-    
-                // Replace the rest of the tokens with Nop
-                for i in (*start + 1)..=*end {
-                    tokens[i] = TokenType::Nop;
-                }
+            // If the loop modifies multiple cells, optimize it accordingly
+            let modifications = Self::calculate_multi_modifications(&loop_tokens);
+            // Replace the first token with ZeroAndModify
+            tokens[*start] = TokenType::ZeroAndModify(modifications);
+            // Replace the rest of the tokens with Nop
+            for i in (*start + 1)..=*end {
+                tokens[i] = TokenType::Nop;
             }
         }
         Ok(())
     }
-    
-    // Checks if the loop is of the form: {LoopStart, DecrementValueN(1), ...}
-    fn is_zero_and_modify_loop(loop_tokens: &[TokenType]) -> bool {
-        // Ensure the loop is large enough to match the pattern
-        if loop_tokens.len() < 6 {
-            return false;
+    // Function to calculate multiple target modifications
+    fn calculate_multi_modifications(loop_tokens: &[TokenType]) -> Vec<(i32, i32)> {
+        let mut modifications = Vec::new();
+        let mut pointer_offset = 0;
+        for token in loop_tokens {
+            match token {
+                TokenType::IncrementPointerN(n) => pointer_offset += n,
+                TokenType::DecrementPointerN(n) => pointer_offset -= n,
+                TokenType::IncrementValueN(m) => modifications.push((pointer_offset, *m)),
+                TokenType::DecrementValueN(m) => modifications.push((pointer_offset, -*m)),
+                _ => {}
+            }
         }
-    
-        // Check if the loop matches the pattern [-<+>] or similar
+        modifications
+    }  
+    // The following function might be used for various passes in order to avoid accidentally noping
+    // Or just matching for certain patterns. For now, it is never called. Initially, I was using it
+    // To check simple loops again. Which can be additional overhead for the interpreter.   
+    fn _is_zero_and_modify_loop(loop_tokens: &[TokenType]) -> bool {
         matches!(loop_tokens[0], TokenType::LoopStart) &&
-        matches!(loop_tokens[1], TokenType::DecrementValueN(1)) &&
-        matches!(loop_tokens[2], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
-        matches!(loop_tokens[3], TokenType::IncrementValueN(_) | TokenType::DecrementValueN(_)) &&
-        matches!(loop_tokens[4], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
-        matches!(loop_tokens[5], TokenType::LoopEnd)
+        matches!(loop_tokens[1], TokenType::DecrementValueN(1) | TokenType::DecrementPointerN(_) | TokenType::IncrementPointerN(_)) &&
+        loop_tokens.iter().any(|t| matches!(t, TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_))) &&
+        loop_tokens.iter().any(|t| matches!(t, TokenType::IncrementValueN(_) | TokenType::DecrementValueN(_))) &&
+        matches!(loop_tokens[loop_tokens.len() - 1], TokenType::LoopEnd)
     }
-    
-    // Calculate the pointer movement target offset in a zero-and-modify loop
-    fn calculate_target_offset(loop_tokens: &[TokenType]) -> i32 {
-        match loop_tokens[2] {
-            TokenType::IncrementPointerN(n) => n,
-            TokenType::DecrementPointerN(n) => -n,
-            _ => 0,
-        }
-    }
-    
-    // Calculate the value modification in a zero-and-modify loop
-    fn calculate_value_change(loop_tokens: &[TokenType]) -> i32 {
-        match loop_tokens[3] {
-            TokenType::IncrementValueN(m) => m,
-            TokenType::DecrementValueN(m) => -m,
-            _ => 0,
-        }
-    }
-    
 }

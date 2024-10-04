@@ -19,13 +19,12 @@ pub enum TokenType {
     LoopStart,
     LoopEnd,
     // Non-specificaton instructions
-    ZeroCell,
     Nop,
     IncrementValueN(i32),
     DecrementValueN(i32),
     IncrementPointerN(i32),
     DecrementPointerN(i32),
-    ZeroAndModify(i32,i32),
+    ZeroAndModify(Vec<(i32, i32)>),
 }
 impl Implementation {
     pub fn new() -> Self {
@@ -94,9 +93,8 @@ impl Implementation {
             TokenType::IncrementPointerN(_) => '>',
             TokenType::DecrementValueN(_) => '-',
             TokenType::IncrementValueN(_) => '+',
-            TokenType::ZeroAndModify(_, _) => 'Z',
-            TokenType::ZeroCell => '0',
             TokenType::Nop=> '!',
+            TokenType::ZeroAndModify(_) => 'Z',
         }
     }
     pub fn char_to_token(ttype: char) -> TokenType {

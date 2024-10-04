@@ -12,7 +12,7 @@ impl Interpreter {
         let mut n = 0;
         while n < 1 {
             profiler.loop_profiling(tokens);
-            Optimize::pre_process_optimize(tokens, optimize, &profiler)?;
+            Optimize::phase1(tokens, optimize, &profiler)?;
             n += 1;
         }
         while interpreter.pp < tokens.len() {
@@ -67,9 +67,6 @@ impl Interpreter {
                         let _pp = loop_stack.pop(); 
                     }
                 },
-                TokenType::ZeroCell => {
-                    interpreter.dt[interpreter.dp] = 0;
-                },
                 TokenType::IncrementValueN(n) => {
                     interpreter.dt[interpreter.dp] += *n as u8;
                 },
@@ -87,10 +84,6 @@ impl Interpreter {
             interpreter.pp += 1;
         }
         profiler.print_profile(print_profiler, &tokens);
-        //profiler.update_tokens(tokens);
-        //profiler.loop_profiling(tokens);
-        //profiler.print_profile(print_profiler, optimize);
-
         Ok(())
     }
 }
