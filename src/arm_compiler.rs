@@ -13,12 +13,12 @@ impl ArmCompiler {
         while n < 1 {
             println!("{:#?}", tokens);
             profiler.loop_profiling(tokens);
-            Optimize::pre_process_optimize(tokens, optimize)?;
+            Optimize::pre_process_optimize(tokens, optimize, &profiler)?;
             Optimize::simple_loop_optimization(&profiler, tokens)?;
             n += 1;
         }
         println!("{:#?}", tokens);
-        profiler.print_profile(true);
+        profiler.print_profile(true, &tokens);
         let mut assembly = String::from(
             "\t.text\n\
             \t.align 2\n\
@@ -105,7 +105,33 @@ impl ArmCompiler {
                 TokenType::DecrementPointerN(n) => {
                     assembly.push_str(&format!("    sub x19, x19, #{}\n", n));
                 },
-                _=> {},
+                TokenType::ZeroAndModify(n, m) => {
+                    assembly.push_str("    ldrb w1, [x19]\n");
+
+                    assembly.push_str("    eor w2, w2, w2\n");  
+                    assembly.push_str("    strb w2, [x19]\n");
+                
+                    assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load with offset
+                    if *m == 1 {
+                        // Direct addition: w2 += w1
+                        assembly.push_str("    add w2, w2, w1\n");  // w2 = w2 + w1
+                    } else if *m == -1 {
+                        // Direct subtraction: w2 -= w1
+                        assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
+                    } else if *m > 1 {
+                        // For values of m > 1, add the result of w1 * m to w2
+                        assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
+                        assembly.push_str("    mul w3, w1, w3\n");            // w3 = w1 * m
+                        assembly.push_str("    add w2, w2, w3\n");            // w2 = w2 + w3
+                    } else if *m < -1 {
+                        // For values of m < -1, subtract the result of w1 * -m from w2
+                        assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
+                        assembly.push_str("    mul w3, w1, w3\n");             // w3 = w1 * -m
+                        assembly.push_str("    sub w2, w2, w3\n");             // w2 = w2 - w3
+                    }
+                    assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n));
+                },              
+                TokenType::Nop => {},
             }
         }
         // Epilogue

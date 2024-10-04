@@ -4,11 +4,12 @@ use crate::profiler::*;
 pub struct Optimize;
 
 impl Optimize {
-    pub fn pre_process_optimize(tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()>{
+    pub fn pre_process_optimize(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
         if optimize {
             Self::sum_increment_decrement_values(tokens)?;
             Self::sum_increment_decrement_pointers(tokens)?;
             Self::zero_cell(tokens)?;
+            //Self::simple_loop_optimization(profiler, tokens)?;
         }
         Ok(())
     }
@@ -218,37 +219,38 @@ impl Optimize {
     pub fn simple_loop_optimization(profiler: &Profiler, tokens: &mut Vec<TokenType>) -> BrainFluxError<()> {
         // Iterate through all simple loops identified by the profiler
         for (start, end) in profiler.get_simple_loops() {
-            let loop_tokens = &tokens[*start..=*end];
-            
-            if Self::is_zero_and_modify_loop(loop_tokens.to_vec().clone()) {
-                let target_offset = Self::calculate_target_offset(loop_tokens.to_vec().clone());
-                let value_change = Self::calculate_value_change(loop_tokens.to_vec().clone());
+            // Create a vector without Nop tokens
+            let loop_tokens: Vec<TokenType> = tokens[*start..=*end]
+                .iter()
+                .filter(|token| !matches!(token, TokenType::Nop))
+                .cloned()
+                .collect();
     
+            // If the loop is of the form [-<+>], etc., apply optimization
+            if Self::is_zero_and_modify_loop(&loop_tokens) {
+                let target_offset = Self::calculate_target_offset(&loop_tokens);
+                let value_change = Self::calculate_value_change(&loop_tokens);
+    
+                // Replace the first token with ZeroAndModify
                 tokens[*start] = TokenType::ZeroAndModify(target_offset, value_change);
-                
+    
+                // Replace the rest of the tokens with Nop
                 for i in (*start + 1)..=*end {
-                    // TODO: if design choice changed update this.
-                    match tokens[i] {
-                        _ => tokens[i] = TokenType::Nop,
-                    }
+                    tokens[i] = TokenType::Nop;
                 }
             }
         }
-        
         Ok(())
     }
+    
     // Checks if the loop is of the form: {LoopStart, DecrementValueN(1), ...}
-    fn is_zero_and_modify_loop(mut loop_tokens: Vec<TokenType>) -> bool {
-        // Example pattern: [-<+>], [-<<+>>]
-        loop_tokens.retain(|token|
-            match token {
-                TokenType::Nop => false,
-                _ => true,
-            }
-        );
+    fn is_zero_and_modify_loop(loop_tokens: &[TokenType]) -> bool {
+        // Ensure the loop is large enough to match the pattern
         if loop_tokens.len() < 6 {
             return false;
         }
+    
+        // Check if the loop matches the pattern [-<+>] or similar
         matches!(loop_tokens[0], TokenType::LoopStart) &&
         matches!(loop_tokens[1], TokenType::DecrementValueN(1)) &&
         matches!(loop_tokens[2], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
@@ -256,30 +258,23 @@ impl Optimize {
         matches!(loop_tokens[4], TokenType::IncrementPointerN(_) | TokenType::DecrementPointerN(_)) &&
         matches!(loop_tokens[5], TokenType::LoopEnd)
     }
-    fn calculate_target_offset(mut loop_tokens: Vec<TokenType>) -> i32 {
-        loop_tokens.retain(|token|
-            match token {
-                TokenType::Nop => false,
-                _ => true,
-            }
-        );
+    
+    // Calculate the pointer movement target offset in a zero-and-modify loop
+    fn calculate_target_offset(loop_tokens: &[TokenType]) -> i32 {
         match loop_tokens[2] {
             TokenType::IncrementPointerN(n) => n,
             TokenType::DecrementPointerN(n) => -n,
             _ => 0,
         }
     }
-    fn calculate_value_change(mut loop_tokens: Vec<TokenType>) -> i32 {
-        loop_tokens.retain(|token|
-            match token {
-                TokenType::Nop => false,
-                _ => true,
-            }
-        );
+    
+    // Calculate the value modification in a zero-and-modify loop
+    fn calculate_value_change(loop_tokens: &[TokenType]) -> i32 {
         match loop_tokens[3] {
-            TokenType::IncrementValueN(m)  => m,
+            TokenType::IncrementValueN(m) => m,
             TokenType::DecrementValueN(m) => -m,
             _ => 0,
         }
     }
+    
 }

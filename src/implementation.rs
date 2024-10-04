@@ -26,7 +26,6 @@ pub enum TokenType {
     IncrementPointerN(i32),
     DecrementPointerN(i32),
     ZeroAndModify(i32,i32),
-    SimpleTwoTargetLeftRight(i32, i32, i32, i32)
 }
 impl Implementation {
     pub fn new() -> Self {
@@ -95,9 +94,8 @@ impl Implementation {
             TokenType::IncrementPointerN(_) => '>',
             TokenType::DecrementValueN(_) => '-',
             TokenType::IncrementValueN(_) => '+',
-            TokenType::ZeroAndModify(_, _) => 'L',
+            TokenType::ZeroAndModify(_, _) => 'Z',
             TokenType::ZeroCell => '0',
-            TokenType::SimpleTwoTargetLeftRight(_, _, _, _) => 'T',
             TokenType::Nop=> '!',
         }
     }

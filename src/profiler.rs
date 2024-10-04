@@ -32,7 +32,7 @@ impl Profiler {
     pub fn get_simple_loops(&self) -> &Vec<(usize, usize)> {
         &self.simple_loop
     }
-    pub fn update_tokens(&mut self, tokens: &mut Vec<TokenType>) {
+    pub fn update_tokens(&mut self, tokens: &Vec<TokenType>) {
         for i in 0..tokens.len() {
             self.count_vector[i].0 = tokens[i].clone();
         }
@@ -42,12 +42,13 @@ impl Profiler {
             println!("{:<5}|    {:<3}|  {:<5}", index, Implementation::token_to_char(&tuple.0), tuple.1);
         }
     }
-    pub fn print_profile(&self, print_profiler: bool) {
+    pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>) {
         print!("\n");
         if print_profiler {
            println!("-----------------------------------");
            println!("Simple innermost loops:");
-           let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
+           let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
+           let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
            for index in self.simple_loop.iter() {
             let chars: String = self.count_vector[index.0..(index.1 + 1)]
                 .iter()
@@ -55,9 +56,18 @@ impl Profiler {
                 .collect();
                 simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
            }
+           for index in self.simple_loop.iter() {
+            let chars: String = tokens[index.0..(index.1 + 1)]
+                .iter()
+                .map(|item| Implementation::token_to_char(item)) // Assuming item.0 is a char
+                .collect();
+                updated_tokens.push(chars);
+           }
            simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+           let mut i: i32 = 0;
            for (index, character, count) in &simple_loop_chars {
-               println!("{}     {:<35}     {}", index, character, count);
+               println!("{}     {:<35}     {:<15}  ====> {}", index, character, count, updated_tokens[i as usize]);
+               i += 1;
            }
            println!("-----------------------------------");
            println!("Non_imple innermost loops:");
@@ -71,7 +81,7 @@ impl Profiler {
            }
            non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
            for (index, character, count) in &non_simple_loop_chars {
-               println!("{}     {:<35}     {}", index, character, count);
+            println!("{}     {:<35}     {:<15}", index, character, count);
            }
         }
     }
@@ -133,32 +143,32 @@ impl Profiler {
                 TokenType::LoopEnd => {
                     loop_end += 1;
                 },
-                TokenType::StdOut | TokenType::StdIn => return false,      // No I/O allowed
-                TokenType::DecrementPointer => pointer_change -= 1,        // Moving pointer left
-                TokenType::IncrementPointer => pointer_change += 1,        // Moving pointer right
-                TokenType::IncrementValue => {                             // Incrementing p[0] by 1
-                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                TokenType::StdOut | TokenType::StdIn => return false,     
+                TokenType::DecrementPointer => pointer_change -= 1,       
+                TokenType::IncrementPointer => pointer_change += 1,        
+                TokenType::IncrementValue => {                             
+                    if pointer_change == 0 {                               
                         cell_modifications += 1;
                     }
                 }
-                TokenType::DecrementValue => {                             // Decrementing p[0] by 1
-                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                TokenType::DecrementValue => {                            
+                    if pointer_change == 0 {                              
                         cell_modifications -= 1;
                     }
                 }
-                TokenType::DecrementPointerN(n) => pointer_change -= n,        // Moving pointer left
-                TokenType::IncrementPointerN(n) => pointer_change += n,        // Moving pointer right
-                TokenType::IncrementValueN(n) => {                             // Incrementing p[0] by 1
-                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                TokenType::DecrementPointerN(n) => pointer_change -= n,        
+                TokenType::IncrementPointerN(n) => pointer_change += n,        
+                TokenType::IncrementValueN(n) => {                             
+                    if pointer_change == 0 {                               
                         cell_modifications += n;
                     }
                 }
-                TokenType::DecrementValueN(n) => {                             // Decrementing p[0] by 1
-                    if pointer_change == 0 {                               // Only modify p[0] if pointer is at p[0]
+                TokenType::DecrementValueN(n) => {                  
+                    if pointer_change == 0 {                               
                         cell_modifications -= n;
                     }
                 }
-                _ => {} // Ignore other commands
+                _ => {} 
             }
         }
         pointer_change == 0 && (cell_modifications == 1 || cell_modifications == -1) && (loop_start == 1 && loop_end == 1)

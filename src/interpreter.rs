@@ -10,9 +10,9 @@ impl Interpreter {
         let mut loop_stack = Vec::with_capacity(16);
         let mut profiler = Profiler::with_tokens(tokens);
         let mut n = 0;
-        while n < 5 {
+        while n < 1 {
             profiler.loop_profiling(tokens);
-            Optimize::pre_process_optimize(tokens, optimize)?;
+            Optimize::pre_process_optimize(tokens, optimize, &profiler)?;
             n += 1;
         }
         while interpreter.pp < tokens.len() {
@@ -86,7 +86,7 @@ impl Interpreter {
             }
             interpreter.pp += 1;
         }
-        profiler.print_profile(print_profiler);
+        profiler.print_profile(print_profiler, &tokens);
         //profiler.update_tokens(tokens);
         //profiler.loop_profiling(tokens);
         //profiler.print_profile(print_profiler, optimize);
