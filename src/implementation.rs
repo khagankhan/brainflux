@@ -1,6 +1,8 @@
 use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler};
 use clap::Parser;
 use std::io::Read;
+use std::fmt::{self, Formatter, Display};
+use inline_colorization::*;
 
 #[derive(Debug)]
 pub struct Implementation {
@@ -26,6 +28,34 @@ pub enum TokenType {
     DecrementPointerN(i32),
     ZeroAndModify(Vec<(i32, i32)>),
 }
+
+impl Display for TokenType {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+        let s = match self {
+            TokenType::IncrementPointer => ">",
+            TokenType::DecrementPointer => "<",
+            TokenType::IncrementValue => "+",
+            TokenType::DecrementValue => "-",
+            TokenType::StdOut => ".",
+            TokenType::StdIn => ",",
+            TokenType::LoopStart => "[",
+            TokenType::LoopEnd => "]",
+            TokenType::Nop => &format!("{color_cyan}_{style_reset}"),
+            TokenType::IncrementValueN(n) => &format!("{color_magenta}+{}{style_reset}", n),
+            TokenType::DecrementValueN(n) => &format!("{color_magenta}-{}{style_reset}", n),
+            TokenType::IncrementPointerN(n) => &format!("{color_green}>{}{style_reset}", n),
+            TokenType::DecrementPointerN(n) => &format!("{color_green}<{}{style_reset}", n),
+            TokenType::ZeroAndModify(mods) => {
+                let mods_str: Vec<String> = mods.iter()
+                    .map(|(ptr, val)| format!("{}{}", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))
+                    .collect();
+                &format!("{color_yellow}Z[{}]{style_reset}", mods_str.join(", "))
+            },
+        };
+        f.write_str(s)
+    }
+}
+
 impl Implementation {
     pub fn new() -> Self {
         Self {
@@ -77,25 +107,6 @@ impl Implementation {
             }
         }
         Ok(tokens)
-    }
-    /// Token types to characters to display
-    pub fn token_to_char(ttype:&TokenType) -> char {
-        match ttype {
-            TokenType::IncrementPointer => '>',
-            TokenType::DecrementPointer => '<',
-            TokenType::IncrementValue => '+',
-            TokenType::DecrementValue => '-',
-            TokenType::StdOut => '.',
-            TokenType::StdIn => ',',
-            TokenType::LoopStart => '[',
-            TokenType::LoopEnd => ']',
-            TokenType::DecrementPointerN(_) => '<',
-            TokenType::IncrementPointerN(_) => '>',
-            TokenType::DecrementValueN(_) => '-',
-            TokenType::IncrementValueN(_) => '+',
-            TokenType::Nop=> '!',
-            TokenType::ZeroAndModify(_) => 'Z',
-        }
     }
     pub fn char_to_token(ttype: char) -> TokenType {
         match ttype {

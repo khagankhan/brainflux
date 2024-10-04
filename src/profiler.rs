@@ -1,4 +1,4 @@
-use crate::implementation::{TokenType, Implementation};
+use crate::implementation::TokenType;
 
 #[derive(Debug, Clone)]
 pub struct Profiler{
@@ -39,7 +39,7 @@ impl Profiler {
     }
     pub fn print_number_of_executions(&self) {
         for (index, tuple) in self.count_vector.iter().enumerate() {
-            println!("{:<5}|    {:<3}|  {:<5}", index, Implementation::token_to_char(&tuple.0), tuple.1);
+            println!("{:<5}|    {:<3}|  {:<5}", index, &tuple.0, tuple.1);
         }
     }
     pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>) {
@@ -50,23 +50,23 @@ impl Profiler {
            let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
            let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
            for index in self.simple_loop.iter() {
-            let chars: String = self.count_vector[index.0..(index.1 + 1)]
-                .iter()
-                .map(|item| Implementation::token_to_char(&item.0)) // Assuming item.0 is a char
-                .collect();
+                let chars: String = self.count_vector[index.0..(index.1 + 1)]
+                    .iter()
+                    .map(|item| item.0.clone().to_string()) // Assuming TokenType implements Clone
+                    .collect();
                 simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
            }
            for index in self.simple_loop.iter() {
-            let chars: String = tokens[index.0..(index.1 + 1)]
-                .iter()
-                .map(|item| Implementation::token_to_char(item)) // Assuming item.0 is a char
-                .collect();
+                let chars: String = tokens[index.0..(index.1 + 1)]
+                    .iter()
+                    .map(|item| item.clone().to_string()) // Assuming item.0 is a char
+                    .collect();
                 updated_tokens.push(chars);
            }
            simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
            let mut i: i32 = 0;
            for (index, character, count) in &simple_loop_chars {
-               println!("{}     {:<35}     {:<15}  ====> {}", index, character, count, updated_tokens[i as usize]);
+               println!("{}     {:<45}     {:<15}  ====> {}", index, character, count, updated_tokens[i as usize]);
                i += 1;
            }
            println!("-----------------------------------");
@@ -75,13 +75,13 @@ impl Profiler {
            for index in self.non_simple_loop.iter() {
             let chars: String = self.count_vector[index.0..(index.1 + 1)]
                 .iter()
-                .map(|item| Implementation::token_to_char(&item.0)) // Assuming item.0 is a char
+                .map(|item| item.0.clone().to_string()) // Assuming TokenType implements Clone
                 .collect();
-                non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
-           }
+            non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+       }   
            non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
            for (index, character, count) in &non_simple_loop_chars {
-            println!("{}     {:<35}     {:<15}", index, character, count);
+            println!("{}     {:<45}     {:<15}", index, character, count);
            }
         }
     }
