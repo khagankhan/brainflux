@@ -1,5 +1,6 @@
 use crate::{implementation::TokenType, cli::BrainFluxError};
 use prettytable::{format, Table, row};
+
 #[derive(Debug, Clone)]
 pub struct Profiler{
     count_vector: Vec<(TokenType, u32)>,
@@ -7,6 +8,7 @@ pub struct Profiler{
     simple_loop: Vec<(usize, usize)>,
     non_simple_loop: Vec<(usize, usize)>,
 }
+
 impl Profiler {
     pub fn with_tokens(tokens: &mut Vec<TokenType>) -> Self {
         let mut count_vector = Vec::with_capacity(tokens.len());
@@ -45,63 +47,82 @@ impl Profiler {
     pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>)->BrainFluxError<()> {
         print!("\n");
         if print_profiler {
-           let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
-           let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
-           for index in self.simple_loop.iter() {
+            let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
+            let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
+            // Collecting simple_loop_chars and updated_tokens
+            for index in self.simple_loop.iter() {
                 let chars: String = self.count_vector[index.0..(index.1 + 1)]
                     .iter()
                     .map(|item| item.0.clone().to_string()) 
                     .collect();
                 simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
-           }
-           for index in self.simple_loop.iter() {
+            }
+            for index in self.simple_loop.iter() {
                 let chars: String = tokens[index.0..(index.1 + 1)]
                     .iter()
                     .map(|item| item.clone().to_string()) 
                     .collect();
                 updated_tokens.push(chars);
-           }
-           simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
-           let mut i: i32 = 0;
-           let mut table = Table::new();
-           println!("\t\t\t\t\tSimple innermost loops:");
-           table.set_titles(row!["Index", "Original loop", 
-                                 "#Execs","After the optimization phase"]);
-           for (index, character, count) in &simple_loop_chars {
-                table.add_row([index.to_string(), character.clone(), count.to_string(), updated_tokens[i as usize].clone()].into());
+            }
+            // Create a vector of indices based on the original order
+            let mut indices: Vec<usize> = (0..simple_loop_chars.len()).collect();
+            // Sort the indices based on the sorting of simple_loop_chars
+            indices.sort_by(|&i, &j| simple_loop_chars[j].2.cmp(&simple_loop_chars[i].2));
+            // Rearrange updated_tokens based on the sorted indices
+            let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens[i].clone()).collect();
+            // Now sort simple_loop_chars the same way
+            simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+            // Display the result in the table
+            let mut i: i32 = 0;
+            let mut table = Table::new();
+            println!("\t\t\t\t\tSimple innermost loops:");
+            table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
+            
+            for (index, character, count) in &simple_loop_chars {
+                table.add_row([index.to_string(), character.clone(), count.to_string(), sorted_updated_tokens[i as usize].clone()].into());
                 i += 1;
+            }
+            
+            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+            table.printstd();            
+           //////////////////////////// NON-SIMPLE LOOPS ////////////////////////////
+           let mut non_simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
+           // Collecting non_simple_loop_chars
+           for index in self.non_simple_loop.iter() {
+               let chars: String = self.count_vector[index.0..(index.1 + 1)]
+                   .iter()
+                   .map(|item| item.0.clone().to_string()) 
+                   .collect();
+               non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+           }
+           // Clear and collect updated_tokens for non-simple loops
+           updated_tokens.clear();
+           for index in self.non_simple_loop.iter() {
+               let chars: String = tokens[index.0..(index.1 + 1)]
+                   .iter()
+                   .map(|item| item.clone().to_string()) 
+                   .collect();
+               updated_tokens.push(chars);
+           }
+           // Create a vector of indices based on the original order of non_simple_loop_chars
+           let mut indices: Vec<usize> = (0..non_simple_loop_chars.len()).collect();
+           // Sort the indices based on the sorting of non_simple_loop_chars (by third element)
+           indices.sort_by(|&i, &j| non_simple_loop_chars[j].2.cmp(&non_simple_loop_chars[i].2));
+           // Rearrange updated_tokens based on the sorted indices
+           let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens[i].clone()).collect();
+           // Sort non_simple_loop_chars the same way
+           non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+           // Display the result in the table
+           println!("\t\t\tNon_simple innermost loops:");
+           let mut table = Table::new();
+           table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
+           let mut i = 0;
+           for (index, character, count) in &non_simple_loop_chars {
+               table.add_row([index.to_string(), character.clone(), count.to_string(), sorted_updated_tokens[i].clone()].into());
+               i += 1;
            }
            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-           table.printstd();
-           /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-           let mut non_simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
-           for index in self.non_simple_loop.iter() {
-                let chars: String = self.count_vector[index.0..(index.1 + 1)]
-                    .iter()
-                    .map(|item| item.0.clone().to_string()) 
-                    .collect();
-                non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
-            }   
-            updated_tokens.clear();
-            for index in self.non_simple_loop.iter() {
-                let chars: String = tokens[index.0..(index.1 + 1)]
-                    .iter()
-                    .map(|item| item.clone().to_string()) 
-                    .collect();
-                updated_tokens.push(chars);
-            }
-            non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
-            println!("\t\t\tNon_imple innermost loops:");
-            let mut table = Table::new();
-            table.set_titles(row!["Index", "Original loop", 
-                                  "#Execs","After the optimization phase"]);
-            let mut i = 0;
-            for (index, character, count) in &non_simple_loop_chars {
-                 table.add_row([index.to_string(), character.clone(), count.to_string(), updated_tokens[i as usize].clone()].into());
-                 i += 1;
-            }
-            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-            //table.printstd();
+           table.printstd();           
         }
         Ok(())
     }
@@ -196,5 +217,4 @@ impl Profiler {
         }
         pointer_change == 0 && (cell_modifications == 1 || cell_modifications == -1) && (loop_start == 1 && loop_end == 1)
     }
-    
 }

@@ -41,8 +41,7 @@ impl ArmCompiler {
         let mut loop_counter = 0;
         let mut loop_stack = Vec::with_capacity(64);
 
-        for (index, token)in tokens.iter().enumerate() {
-            profiler.count_executions(index, true);
+        for (_index, token)in tokens.iter().enumerate() {
             match token {
                 TokenType::IncrementPointer => {
                     assembly.push_str("    add x19, x19, #1\n");
@@ -111,30 +110,27 @@ impl ArmCompiler {
                         assembly.push_str(&format!("    sub x19, x19, #{}\n", n)); // Use immediate if it's within range
                     }
                 },
-                
                 TokenType::ZeroAndModify(modifications) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
                     assembly.push_str("    eor w2, w2, w2\n");  
                     assembly.push_str("    strb w2, [x19]\n");
 
-                    for i in 0..modifications.len() {
-                        let n = modifications[i].0;
-                        let m = modifications[i].1;
-                        if n == 0 {
+                    for (n, m) in modifications {
+                        if *n == 0 {
                             continue;
                         }
                         assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load with offset
-                        if m == 1 {
+                        if *m == 1 {
                             // Direct addition: w2 += w1
                             assembly.push_str("    add w2, w2, w1\n");  // w2 = w2 + w1
-                        } else if m == -1 {
+                        } else if *m == -1 {
                             // Direct subtraction: w2 -= w1
                             assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
-                        } else if m > 1 {
+                        } else if *m > 1 {
                             assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
                             assembly.push_str("    madd w2, w1, w3, w2\n");  // w2 = (w1 * w3) + w2
     
-                        } else if m < -1 {
+                        } else if *m < -1 {
                             assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
                             assembly.push_str("    msub w2, w1, w3, w2\n");  // w2 = (w1 * w3) - w2
                         }
