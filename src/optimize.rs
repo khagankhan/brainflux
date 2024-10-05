@@ -1,6 +1,7 @@
 use crate::cli::*;
 use crate::implementation::*;
 use crate::profiler::*;
+
 pub struct Optimize;
 
 impl Optimize {

@@ -4,6 +4,7 @@ use crate::optimize::*;
 use crate::profiler::Profiler;
 use std::fs::File;
 use std::io::Write;
+
 pub struct ArmCompiler;
 
 impl ArmCompiler {
@@ -15,10 +16,9 @@ impl ArmCompiler {
             Optimize::phase1(tokens, optimize, &profiler)?;
             n += 1;
         }
-        println!("{:#?}", tokens);
-        profiler.print_profile(true, &tokens);
+        profiler.print_profile(true, &tokens)?;
         profiler.loop_profiling(tokens);
-        profiler.print_profile(true, &tokens);
+        profiler.print_profile(true, &tokens)?;
         let mut assembly = String::from(
             "\t.text\n\
             \t.align 2\n\
@@ -41,7 +41,8 @@ impl ArmCompiler {
         let mut loop_counter = 0;
         let mut loop_stack = Vec::with_capacity(64);
 
-        for token in tokens.iter() {
+        for (index, token)in tokens.iter().enumerate() {
+            profiler.count_executions(index, true);
             match token {
                 TokenType::IncrementPointer => {
                     assembly.push_str("    add x19, x19, #1\n");
@@ -95,11 +96,22 @@ impl ArmCompiler {
                     assembly.push_str("    strb w1, [x19]\n");
                 },
                 TokenType::IncrementPointerN(n) => {
-                    assembly.push_str(&format!("    add x19, x19, #{}\n", n));
+                    if *n > 4095 {
+                        assembly.push_str(&format!("    mov x0, #{}\n", n)); // Load the large immediate into a temporary register
+                        assembly.push_str("    add x19, x19, x0\n");        // Add using the register
+                    } else {
+                        assembly.push_str(&format!("    add x19, x19, #{}\n", n)); // Use immediate if it's within range
+                    }
                 },
                 TokenType::DecrementPointerN(n) => {
-                    assembly.push_str(&format!("    sub x19, x19, #{}\n", n));
-                },       
+                    if *n > 4095 {
+                        assembly.push_str(&format!("    mov x0, #{}\n", n)); // Load the large immediate into a temporary register
+                        assembly.push_str("    sub x19, x19, x0\n");        // Subtract using the register
+                    } else {
+                        assembly.push_str(&format!("    sub x19, x19, #{}\n", n)); // Use immediate if it's within range
+                    }
+                },
+                
                 TokenType::ZeroAndModify(modifications) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
                     assembly.push_str("    eor w2, w2, w2\n");  

@@ -83,7 +83,7 @@ impl Interpreter {
             }
             interpreter.pp += 1;
         }
-        profiler.print_profile(print_profiler, &tokens);
+        profiler.print_profile(print_profiler, &tokens)?;
         Ok(())
     }
 }

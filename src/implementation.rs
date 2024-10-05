@@ -32,19 +32,19 @@ pub enum TokenType {
 impl Display for TokenType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let s = match self {
-            TokenType::IncrementPointer => ">",
-            TokenType::DecrementPointer => "<",
-            TokenType::IncrementValue => "+",
-            TokenType::DecrementValue => "-",
-            TokenType::StdOut => ".",
-            TokenType::StdIn => ",",
+            TokenType::IncrementPointer => &format!("{color_red}>{style_reset}"),
+            TokenType::DecrementPointer => &format!("{color_red}<{style_reset}"),
+            TokenType::IncrementValue => &format!("{color_blue}+{style_reset}"),
+            TokenType::DecrementValue => &format!("{color_blue}-{style_reset}"),
+            TokenType::StdOut => &format!("{color_magenta}.{style_reset}"),
+            TokenType::StdIn => &format!("{color_magenta},{style_reset}"),
             TokenType::LoopStart => "[",
             TokenType::LoopEnd => "]",
-            TokenType::Nop => &format!("{color_cyan}_{style_reset}"),
-            TokenType::IncrementValueN(n) => &format!("{color_magenta}+{}{style_reset}", n),
-            TokenType::DecrementValueN(n) => &format!("{color_magenta}-{}{style_reset}", n),
-            TokenType::IncrementPointerN(n) => &format!("{color_green}>{}{style_reset}", n),
-            TokenType::DecrementPointerN(n) => &format!("{color_green}<{}{style_reset}", n),
+            TokenType::Nop => "",
+            TokenType::IncrementValueN(n) => &format!("{color_blue}+{}{style_reset}", n),
+            TokenType::DecrementValueN(n) => &format!("{color_blue}-{}{style_reset}", n),
+            TokenType::IncrementPointerN(n) => &format!("{color_red}>{}{style_reset}", n),
+            TokenType::DecrementPointerN(n) => &format!("{color_red}<{}{style_reset}", n),
             TokenType::ZeroAndModify(mods) => {
                 let mods_str: Vec<String> = mods.iter()
                     .map(|(ptr, val)| format!("{}{}", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))

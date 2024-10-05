@@ -1,5 +1,5 @@
-use crate::implementation::TokenType;
-
+use crate::{implementation::TokenType, cli::BrainFluxError};
+use prettytable::{format, Table, row};
 #[derive(Debug, Clone)]
 pub struct Profiler{
     count_vector: Vec<(TokenType, u32)>,
@@ -42,48 +42,68 @@ impl Profiler {
             println!("{:<5}|    {:<3}|  {:<5}", index, &tuple.0, tuple.1);
         }
     }
-    pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>) {
+    pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>)->BrainFluxError<()> {
         print!("\n");
         if print_profiler {
-           println!("-----------------------------------");
-           println!("Simple innermost loops:");
            let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
            let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
            for index in self.simple_loop.iter() {
                 let chars: String = self.count_vector[index.0..(index.1 + 1)]
                     .iter()
-                    .map(|item| item.0.clone().to_string()) // Assuming TokenType implements Clone
+                    .map(|item| item.0.clone().to_string()) 
                     .collect();
                 simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
            }
            for index in self.simple_loop.iter() {
                 let chars: String = tokens[index.0..(index.1 + 1)]
                     .iter()
-                    .map(|item| item.clone().to_string()) // Assuming item.0 is a char
+                    .map(|item| item.clone().to_string()) 
                     .collect();
                 updated_tokens.push(chars);
            }
            simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
            let mut i: i32 = 0;
+           let mut table = Table::new();
+           println!("\t\t\t\t\tSimple innermost loops:");
+           table.set_titles(row!["Index", "Original loop", 
+                                 "#Execs","After the optimization phase"]);
            for (index, character, count) in &simple_loop_chars {
-               println!("{}     {:<45}     {:<15}  ====> {}", index, character, count, updated_tokens[i as usize]);
-               i += 1;
+                table.add_row([index.to_string(), character.clone(), count.to_string(), updated_tokens[i as usize].clone()].into());
+                i += 1;
            }
-           println!("-----------------------------------");
-           println!("Non_imple innermost loops:");
+           table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+           table.printstd();
+           /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
            let mut non_simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
            for index in self.non_simple_loop.iter() {
-            let chars: String = self.count_vector[index.0..(index.1 + 1)]
-                .iter()
-                .map(|item| item.0.clone().to_string()) // Assuming TokenType implements Clone
-                .collect();
-            non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
-       }   
-           non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
-           for (index, character, count) in &non_simple_loop_chars {
-            println!("{}     {:<45}     {:<15}", index, character, count);
-           }
+                let chars: String = self.count_vector[index.0..(index.1 + 1)]
+                    .iter()
+                    .map(|item| item.0.clone().to_string()) 
+                    .collect();
+                non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+            }   
+            updated_tokens.clear();
+            for index in self.non_simple_loop.iter() {
+                let chars: String = tokens[index.0..(index.1 + 1)]
+                    .iter()
+                    .map(|item| item.clone().to_string()) 
+                    .collect();
+                updated_tokens.push(chars);
+            }
+            non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+            println!("\t\t\tNon_imple innermost loops:");
+            let mut table = Table::new();
+            table.set_titles(row!["Index", "Original loop", 
+                                  "#Execs","After the optimization phase"]);
+            let mut i = 0;
+            for (index, character, count) in &non_simple_loop_chars {
+                 table.add_row([index.to_string(), character.clone(), count.to_string(), updated_tokens[i as usize].clone()].into());
+                 i += 1;
+            }
+            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
+            //table.printstd();
         }
+        Ok(())
     }
     // For interpreter mode, it can show us how many times a given token is executed
     // You can see sometimes a token just executed thousands of times that can be optimized
