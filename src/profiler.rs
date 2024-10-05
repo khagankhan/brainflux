@@ -49,7 +49,7 @@ impl Profiler {
         if print_profiler {
             let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
             let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
-            // Collecting simple_loop_chars and updated_tokens
+            // Collecting simple_loop_chars
             for index in self.simple_loop.iter() {
                 let chars: String = self.count_vector[index.0..(index.1 + 1)]
                     .iter()

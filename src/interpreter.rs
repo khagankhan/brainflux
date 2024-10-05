@@ -89,9 +89,9 @@ impl Interpreter {
                     let mut index;
                     for (offset, value) in modifications {
                         if *offset > 0 {
-                            index = temp.wrapping_add(*offset as usize);  // Get the offset index
+                            index = temp.wrapping_add(*offset as usize); 
                         } else if *offset < 0 {
-                            index = temp.wrapping_sub((-(*offset)) as usize);  // Get the offset index
+                            index = temp.wrapping_sub((-(*offset)) as usize); 
                         } else {
                             continue;
                         }
