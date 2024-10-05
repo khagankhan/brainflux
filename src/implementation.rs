@@ -10,6 +10,7 @@ pub struct Implementation {
    pub pp: usize,
    pub dt: Vec<u8>,
 }
+
 #[derive(Debug, Eq, Hash, PartialEq, Clone)]
 pub enum TokenType {
     IncrementPointer,
@@ -107,19 +108,6 @@ impl Implementation {
             }
         }
         Ok(tokens)
-    }
-    pub fn char_to_token(ttype: char) -> TokenType {
-        match ttype {
-            '>' => TokenType::IncrementPointer,
-            '<' => TokenType::DecrementPointer,
-            '+' => TokenType::IncrementValue,
-            '-' => TokenType::DecrementValue,
-            '.' => TokenType::StdOut,
-            ',' => TokenType::StdIn,
-            '[' => TokenType::LoopStart,
-            ']' => TokenType::LoopEnd,
-            _ => TokenType::Nop,
-        }
     }
     /// The interpreter that runs the provided tokens
     fn interpret(&mut self, tokens: &mut Vec<TokenType>, print_profiler: bool,  optimize: bool) -> BrainFluxError<()> {
