@@ -96,16 +96,16 @@ impl ArmCompiler {
                 },
                 TokenType::IncrementPointerN(n) => {
                     if *n > 4095 {
-                        assembly.push_str(&format!("    mov x0, #{}\n", n)); // Load the large immediate into a temporary register
-                        assembly.push_str("    add x19, x19, x0\n");        // Add using the register
+                        assembly.push_str(&format!("    mov x8, #{}\n", n)); // Load the large immediate into a temporary register
+                        assembly.push_str("    add x19, x19, x8\n");        // Add using the register
                     } else {
                         assembly.push_str(&format!("    add x19, x19, #{}\n", n)); // Use immediate if it's within range
                     }
                 },
                 TokenType::DecrementPointerN(n) => {
                     if *n > 4095 {
-                        assembly.push_str(&format!("    mov x0, #{}\n", n)); // Load the large immediate into a temporary register
-                        assembly.push_str("    sub x19, x19, x0\n");        // Subtract using the register
+                        assembly.push_str(&format!("    mov x8, #{}\n", n)); // Load the large immediate into a temporary register
+                        assembly.push_str("    sub x19, x19, x8\n");        // Subtract using the register
                     } else {
                         assembly.push_str(&format!("    sub x19, x19, #{}\n", n)); // Use immediate if it's within range
                     }
@@ -138,7 +138,6 @@ impl ArmCompiler {
                     }
                 },      
                 TokenType::MemoryScan(n) => { 
-                    if *n == 1 {
                         let loop_label = format!("loop_scan{}", label_counter);
                         label_counter += 1;
                         let found_label = format!("loop_scan{}", label_counter);
@@ -147,25 +146,41 @@ impl ArmCompiler {
                         label_counter += 1;
                         
                         assembly.push_str(&format!("{}:\n", loop_label));  
-                        assembly.push_str("    ld1.16b {v0}, [x19]\n"); // Load 16 bytes to registers               
-                        assembly.push_str("    cmeq.16b v0, v0, #0\n"); // Compare with zeros              
-                        assembly.push_str("    shrn.8b v0, v0, #4\n"); // Do shrn              
+                        assembly.push_str("    ld1.16b {v0}, [x19]\n"); // Load 16 bytes to registers             
+                        assembly.push_str("    cmeq.16b v0, v0, #0\n"); // Compare with zeros  
+                        // Keep the zeros only poisitions for [>>] [>>>>] [>>>>>>>>] (Just mask the certain positions)
+                        if *n == 2 {
+                            assembly.push_str("    movi.8h	v1, #1\n");
+                        } else if *n == 4 {
+                            assembly.push_str("    movi.4s	v1, #1\n");
+                        } else if *n == 8 {
+                            assembly.push_str("    movi.2d	v1, #0x000000000000ff\n");
+                        }
+                        if *n == 2 || *n == 4 || *n == 8 {
+                            assembly.push_str("    and.16b	v0, v0, v1\n");
+                            assembly.push_str("    shl.16b	v0, v0, #7\n");
+                            assembly.push_str("    sshr.16b	v0, v0, #7\n");
+                        }          
+                        // Find the first matching zero
+                        assembly.push_str("    shrn.8b v0, v0, #4\n"); // Do shrn: make it 64 bits value             
                         assembly.push_str("    fmov x8, d0\n");  // Move the 64 bit value to general purpose reg
-                        assembly.push_str("    rbit x9, x8\n"); // rotate the bit
+                        assembly.push_str("    rbit x9, x8\n"); // rotate the bits (We do not have ctz so we do rbit then clz which is ctz)
                         assembly.push_str("    clz x9, x9\n"); // Count leading zeros
                         assembly.push_str("    ubfx x9, x9, #2, #30\n"); // Do shifting
-                        
-                        assembly.push_str("    cmp	x9, #16\n"); // if all zeros: 64 >> 2 = 16; Not found
-                        assembly.push_str(&format!("    b.eq {}\n", not_found_label)); // if not found add the next +16 and redo
-
-                        assembly.push_str(&format!("    b {}\n", found_label));
-                        assembly.push_str(&format!("{}:\n", not_found_label));
-                        assembly.push_str("    add x19, x19, #16\n");
-                        assembly.push_str(&format!("    b {}\n", loop_label));
+                        // Compare x9 with 16 (indicating 64 bits of zeros, since 64 >> 2 = 16)
+                        assembly.push_str("    cmp    x9, #16\n"); 
+                        // If x9 equals 16, jump to the 'not_found_label'
+                        assembly.push_str(&format!("    b.eq    {}\n", not_found_label));
+                        // Else jump to the found label
+                        assembly.push_str(&format!("    b {}\n", found_label)); 
+                        assembly.push_str(&format!("{}:\n", not_found_label)); // Not found label
+                        // Increment pointer +16 to load the next 16 bytes
+                        assembly.push_str("    add x19, x19, #16\n"); 
+                        // Jump back for the next 16 bytes
+                        assembly.push_str(&format!("    b {}\n", loop_label)); 
+                        // If found adjust the pointer +x9 and continue
                         assembly.push_str(&format!("{}:\n", found_label));
-                        assembly.push_str("    add x19, x19, x9\n"); // If found add that index
-
-                    }               
+                        assembly.push_str("    add x19, x19, x9\n");            
                 },                                              
                 TokenType::Nop => {},
             }
