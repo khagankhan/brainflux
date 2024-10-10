@@ -237,7 +237,7 @@ impl Optimize {
                     TokenType::LoopEnd
                 ) = (&loop_tokens[0], &loop_tokens[1], &loop_tokens[2]) {
                     // Check if n is a power of two
-                    if (n.abs() as u32).is_power_of_two() {
+                    if (n.abs() as u32).is_power_of_two() && *n < 16 {
                         // Replace the tokens in the original vector with MemoryScan(n)
                         if loop_tokens[1] == TokenType::DecrementPointerN(*n) {
                             tokens[*start] = TokenType::MemoryScan(-*n);

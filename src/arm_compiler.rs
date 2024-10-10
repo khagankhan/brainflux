@@ -19,6 +19,7 @@ impl ArmCompiler {
         profiler.print_profile(true, &tokens)?;
         profiler.loop_profiling(tokens);
         profiler.print_profile(true, &tokens)?;
+        // Prologue
         let mut assembly = String::from(
             "\t.text\n\
             \t.p2align 2\n\
