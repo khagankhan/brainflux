@@ -156,8 +156,9 @@ impl ArmCompiler {
                             assembly.push_str("    movi.4s	v1, #1\n");
                         } else if *n == 8 {
                             assembly.push_str("    movi.2d	v1, #0x000000000000ff\n");
+                            assembly.push_str("    and.16b	v0, v0, v1\n");
                         }
-                        if *n == 2 || *n == 4 || *n == 8 {
+                        if *n == 2 || *n == 4 {
                             assembly.push_str("    and.16b	v0, v0, v1\n");
                             assembly.push_str("    shl.16b	v0, v0, #7\n");
                             assembly.push_str("    sshr.16b	v0, v0, #7\n");
