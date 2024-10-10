@@ -12,6 +12,7 @@ impl Optimize {
             Self::sum_increment_decrement_pointers(tokens)?;
             // Then we can do the loop optimizations
             Self::simple_loop_optimization(profiler, tokens)?;
+            Self::memory_scan_optimization(profiler, tokens)?;
         }
         Ok(())
     }
@@ -219,6 +220,41 @@ impl Optimize {
         }
         Ok(())
     }
+    pub fn memory_scan_optimization(profiler: &Profiler, tokens: &mut Vec<TokenType>) -> BrainFluxError<()> {
+        // Iterate through all non-simple loops identified by the profiler
+        for (start, end) in profiler.get_non_simple_loops() {
+            // Create a vector without Nop tokens
+            let loop_tokens: Vec<TokenType> = tokens[*start..=*end]
+                .iter()
+                .filter(|token| !matches!(token, TokenType::Nop))
+                .cloned()
+                .collect();
+            // Check if the loop_tokens match the pattern {LoopStart, IncrementPointer(n), LoopEnd}
+            if loop_tokens.len() == 3 {
+                if let (
+                    TokenType::LoopStart,
+                    TokenType::IncrementPointerN(n),
+                    TokenType::LoopEnd
+                ) = (&loop_tokens[0], &loop_tokens[1], &loop_tokens[2]) {
+                    // Check if n is a power of two
+                    if /*(n.abs() as u32).is_power_of_two()*/ *n == 1 {
+                        // Replace the tokens in the original vector with MemoryScan(n)
+                        if loop_tokens[1] == TokenType::DecrementPointerN(*n) {
+                            tokens[*start] = TokenType::MemoryScan(-*n);
+                        } else {
+                            tokens[*start] = TokenType::MemoryScan(*n);
+                        }
+                        // Nop the rest
+                        for i in (*start + 1)..=*end {
+                            tokens[i] = TokenType::Nop;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+    
     // Function to calculate multiple target modifications
     fn calculate_multi_modifications(loop_tokens: &[TokenType]) -> Vec<(i32, i32)> {
         let mut modifications = Vec::new();

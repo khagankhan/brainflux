@@ -34,6 +34,9 @@ impl Profiler {
     pub fn get_simple_loops(&self) -> &Vec<(usize, usize)> {
         &self.simple_loop
     }
+    pub fn get_non_simple_loops(&self) -> &Vec<(usize, usize)> {
+        &self.non_simple_loop
+    }
     pub fn update_tokens(&mut self, tokens: &Vec<TokenType>) {
         for i in 0..tokens.len() {
             self.count_vector[i].0 = tokens[i].clone();

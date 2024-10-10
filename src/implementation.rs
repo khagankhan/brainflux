@@ -28,6 +28,7 @@ pub enum TokenType {
     IncrementPointerN(i32),
     DecrementPointerN(i32),
     ZeroAndModify(Vec<(i32, i32)>),
+    MemoryScan(i32),
 }
 
 impl Display for TokenType {
@@ -42,13 +43,14 @@ impl Display for TokenType {
             TokenType::LoopStart => "[",
             TokenType::LoopEnd => "]",
             TokenType::Nop => "",
-            TokenType::IncrementValueN(n) => &format!("{color_blue}+{}{style_reset}", n),
-            TokenType::DecrementValueN(n) => &format!("{color_blue}-{}{style_reset}", n),
-            TokenType::IncrementPointerN(n) => &format!("{color_red}>{}{style_reset}", n),
-            TokenType::DecrementPointerN(n) => &format!("{color_red}<{}{style_reset}", n),
+            TokenType::IncrementValueN(n) => &format!("{color_blue}(+{}){style_reset}", n),
+            TokenType::DecrementValueN(n) => &format!("{color_blue}(-{}){style_reset}", n),
+            TokenType::IncrementPointerN(n) => &format!("{color_red}(>{}){style_reset}", n),
+            TokenType::DecrementPointerN(n) => &format!("{color_red}(<{}){style_reset}", n),
+            TokenType::MemoryScan(n) => &format!("{color_green}M({}){style_reset}", n),
             TokenType::ZeroAndModify(mods) => {
                 let mods_str: Vec<String> = mods.iter()
-                    .map(|(ptr, val)| format!("{}{}", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))
+                    .map(|(ptr, val)| format!("({}{})", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))
                     .collect();
                 &format!("{color_yellow}Z[{}]{style_reset}", mods_str.join(", "))
             },

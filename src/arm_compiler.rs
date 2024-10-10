@@ -21,7 +21,7 @@ impl ArmCompiler {
         profiler.print_profile(true, &tokens)?;
         let mut assembly = String::from(
             "\t.text\n\
-            \t.align 2\n\
+            \t.p2align 2\n\
             \t.global _main\n\
             \t.extern _putchar, _getchar, _malloc, _free, _memset\n\
             _main:\n\
@@ -40,7 +40,7 @@ impl ArmCompiler {
         );
         let mut loop_counter = 0;
         let mut loop_stack = Vec::with_capacity(64);
-
+        let mut label_counter = 0;
         for (_index, token)in tokens.iter().enumerate() {
             match token {
                 TokenType::IncrementPointer => {
@@ -70,7 +70,7 @@ impl ArmCompiler {
                 TokenType::LoopStart => {
                     let loop_start_label = format!("loop_start_{}", loop_counter);
                     let loop_end_label = format!("loop_end_{}", loop_counter);
-                    assembly.push_str(&format!("    {}:\n", loop_start_label));
+                    assembly.push_str(&format!("{}:\n", loop_start_label));
                     assembly.push_str("    ldrb w1, [x19]\n");
                     assembly.push_str(&format!("    cbz w1, {}\n", loop_end_label));
                     loop_stack.push((loop_start_label, loop_end_label));
@@ -80,7 +80,7 @@ impl ArmCompiler {
                     if let Some((loop_start_label, loop_end_label)) = loop_stack.pop() {
                         assembly.push_str("    ldrb w1, [x19]\n");
                         assembly.push_str(&format!("    cbnz w1, {}\n", loop_start_label));
-                        assembly.push_str(&format!("    {}:\n", loop_end_label));
+                        assembly.push_str(&format!("{}:\n", loop_end_label));
                     }
                 },
                 // Optimizations
@@ -126,29 +126,59 @@ impl ArmCompiler {
                         } else if *m == -1 {
                             // Direct subtraction: w2 -= w1
                             assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
-                        } else if *m > 1 {
+                        } else if *m > 0 {
                             assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
                             assembly.push_str("    madd w2, w1, w3, w2\n");  // w2 = (w1 * w3) + w2
     
-                        } else if *m < -1 {
+                        } else if *m < 0 {
                             assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
                             assembly.push_str("    msub w2, w1, w3, w2\n");  // w2 = (w1 * w3) - w2
                         }
                         assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n)); // Store back with offset
                     }
-                },                     
+                },      
+                TokenType::MemoryScan(n) => { 
+                    if *n == 1 {
+                        let loop_label = format!("loop_scan{}", label_counter);
+                        label_counter += 1;
+                        let found_label = format!("loop_scan{}", label_counter);
+                        label_counter += 1;
+                        let not_found_label = format!("loop_scan{}", label_counter);
+                        label_counter += 1;
+                        
+                        assembly.push_str(&format!("{}:\n", loop_label));  
+                        assembly.push_str("    ld1.16b {v0}, [x19]\n"); // Load 16 bytes to registers               
+                        assembly.push_str("    cmeq.16b v0, v0, #0\n"); // Compare with zeros              
+                        assembly.push_str("    shrn.8b v0, v0, #4\n"); // Do shrn              
+                        assembly.push_str("    fmov x8, d0\n");  // Move the 64 bit value to general purpose reg
+                        assembly.push_str("    rbit x9, x8\n"); // rotate the bit
+                        assembly.push_str("    clz x9, x9\n"); // Count leading zeros
+                        assembly.push_str("    ubfx x9, x9, #2, #30\n"); // Do shifting
+                        
+                        assembly.push_str("    cmp	x9, #16\n"); // if all zeros: 64 >> 2 = 16; Not found
+                        assembly.push_str(&format!("    b.eq {}\n", not_found_label)); // if not found add the next +16 and redo
+
+                        assembly.push_str(&format!("    b {}\n", found_label));
+                        assembly.push_str(&format!("{}:\n", not_found_label));
+                        assembly.push_str("    add x19, x19, #16\n");
+                        assembly.push_str(&format!("    b {}\n", loop_label));
+                        assembly.push_str(&format!("{}:\n", found_label));
+                        assembly.push_str("    add x19, x19, x9\n"); // If found add that index
+
+                    }               
+                },                                              
                 TokenType::Nop => {},
             }
         }
         // Epilogue
         assembly.push_str(
             "\
-            mov x0, x20\n\
-            bl _free\n\
-            ldp x19, x20, [sp], #16\n\
-            ldp x29, x30, [sp], #16\n\
-            eor w0, w0, w0\n\
-            ret\n\
+            \tmov x0, x20\n\
+            \tbl _free\n\
+            \tldp x19, x20, [sp], #16\n\
+            \tldp x29, x30, [sp], #16\n\
+            \teor w0, w0, w0\n\
+            \tret\n\
             "
         );
         let mut file = File::create("output.s")?;
