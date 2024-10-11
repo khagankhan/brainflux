@@ -113,7 +113,7 @@ impl ArmCompiler {
                 },
                 TokenType::ZeroAndModify(modifications) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
-                    assembly.push_str("    mov w2, #0\n");  
+                    assembly.push_str("    mov w2, wzr\n");  
                     assembly.push_str("    strb w2, [x19]\n");
 
                     for (n, m) in modifications {
@@ -142,13 +142,21 @@ impl ArmCompiler {
                     let loop_label = format!("loop_memory_scan{}", label_counter);
                     label_counter += 1;
                     
+                    // After the zeros in different indexes are found the following ands
+                    // keep only the ones in the exact posiitions we want so rbit+clz find
+                    // only the ones in the positions we want.
                     let constant = match *n {
-                        1 => format!("    cbz x8, {}\n", loop_label),  
-                        2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n".to_string(),  
-                        4 => "    ands x8, x8, #0x000f000f000f000f\n".to_string(),  
+                        // [>]: if reegister is zero (not found (no xf)) jump back.
+                        1 => format!("    cbz x8, {}\n", loop_label), 
+                        // For [>>] since it moves pointer two times, keep the ones in even position: 0, 2, 4 ... 
+                        2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n".to_string(),
+                        // For [>>>>] since it moves pointer four times, keep the ones in the positions divible by 4: 0, 4, 8, 12 
+                        4 => "    ands x8, x8, #0x000f000f000f000f\n".to_string(),
+                        // The above logic is the same for [>>>>>>>>] as well.  
                         8 => "    ands x8, x8, #0x0000000f0000000f\n".to_string(),  
                         _ => unreachable!(),
                     };
+                    // Apply the finding the first matching logic
                     assembly.push_str(&format!("{}:\n", loop_label));  
                     assembly.push_str("    ld1.16b {v0}, [x19], #16\n");  
                     assembly.push_str("    cmeq.16b v0, v0, #0\n");        
@@ -156,13 +164,17 @@ impl ArmCompiler {
                     assembly.push_str("    fmov x8, d0\n");  
                     assembly.push_str(&constant);  
                     if *n != 1 {
+                        // If zero flag is set, it means ands found no matching 0s in the desires position
+                        // So we simply jump to the loop again
                         assembly.push_str(&format!("    b.eq {}\n", loop_label));
                     }  
+                    // Since we do not have ctz in ARM we use rbit + clz instead
                     assembly.push_str("    rbit x9, x8\n");  
                     assembly.push_str("    clz x9, x9\n");  
-                    assembly.push_str("    ubfx x9, x9, #2, #30\n");
+                    // We have additional post increment +16. So we must decrement that firstly
                     assembly.push_str("    sub x19, x19, #16\n");  
-                    assembly.push_str("    add x19, x19, x9\n"); 
+                    // Divide by four and increment the pointer
+                    assembly.push_str("    add x19, x19, x9, lsr #2\n"); 
                 },                                                 
                 TokenType::Nop => {},
             }
