@@ -34,7 +34,7 @@ impl ArmCompiler {
             \tmov x19, x0\n\
             \tmov x20, x0\n\
             \tmov x1, x19\n\
-            \teor w2, w2, w2\n\
+            \tmov w2, #0\n\
             \tmov x3, #30000\n\
             \tbl _memset\n\
             "
@@ -113,7 +113,7 @@ impl ArmCompiler {
                 },
                 TokenType::ZeroAndModify(modifications) => {
                     assembly.push_str("    ldrb w1, [x19]\n");
-                    assembly.push_str("    eor w2, w2, w2\n");  
+                    assembly.push_str("    mov w2, #0\n");  
                     assembly.push_str("    strb w2, [x19]\n");
 
                     for (n, m) in modifications {
@@ -139,51 +139,31 @@ impl ArmCompiler {
                     }
                 },      
                 TokenType::MemoryScan(n) => { 
-                        let loop_label = format!("loop_scan{}", label_counter);
-                        label_counter += 1;
-                        let found_label = format!("loop_scan{}", label_counter);
-                        label_counter += 1;
-                        let not_found_label = format!("loop_scan{}", label_counter);
-                        label_counter += 1;
-                        
-                        assembly.push_str(&format!("{}:\n", loop_label));  
-                        assembly.push_str("    ld1.16b {v0}, [x19]\n"); // Load 16 bytes to registers             
-                        assembly.push_str("    cmeq.16b v0, v0, #0\n"); // Compare with zeros  
-                        // Keep the zeros only poisitions for [>>] [>>>>] [>>>>>>>>] (Just mask the certain positions)
-                        if *n == 2 {
-                            assembly.push_str("    movi.8h	v1, #1\n");
-                        } else if *n == 4 {
-                            assembly.push_str("    movi.4s	v1, #1\n");
-                        } else if *n == 8 {
-                            assembly.push_str("    movi.2d	v1, #0x000000000000ff\n");
-                            assembly.push_str("    and.16b	v0, v0, v1\n");
-                        }
-                        if *n == 2 || *n == 4 {
-                            assembly.push_str("    and.16b	v0, v0, v1\n");
-                            assembly.push_str("    shl.16b	v0, v0, #7\n");
-                            assembly.push_str("    sshr.16b	v0, v0, #7\n");
-                        }          
-                        // Find the first matching zero
-                        assembly.push_str("    shrn.8b v0, v0, #4\n"); // Do shrn: make it 64 bits value             
-                        assembly.push_str("    fmov x8, d0\n");  // Move the 64 bit value to general purpose reg
-                        assembly.push_str("    rbit x9, x8\n"); // rotate the bits (We do not have ctz so we do rbit then clz which is ctz)
-                        assembly.push_str("    clz x9, x9\n"); // Count leading zeros
-                        assembly.push_str("    ubfx x9, x9, #2, #30\n"); // Do shifting
-                        // Compare x9 with 16 (indicating 64 bits of zeros, since 64 >> 2 = 16)
-                        assembly.push_str("    cmp    x9, #16\n"); 
-                        // If x9 equals 16, jump to the 'not_found_label'
-                        assembly.push_str(&format!("    b.eq    {}\n", not_found_label));
-                        // Else jump to the found label
-                        assembly.push_str(&format!("    b {}\n", found_label)); 
-                        assembly.push_str(&format!("{}:\n", not_found_label)); // Not found label
-                        // Increment pointer +16 to load the next 16 bytes
-                        assembly.push_str("    add x19, x19, #16\n"); 
-                        // Jump back for the next 16 bytes
-                        assembly.push_str(&format!("    b {}\n", loop_label)); 
-                        // If found adjust the pointer +x9 and continue
-                        assembly.push_str(&format!("{}:\n", found_label));
-                        assembly.push_str("    add x19, x19, x9\n");            
-                },                                              
+                    let loop_label = format!("loop_memory_scan{}", label_counter);
+                    label_counter += 1;
+                    
+                    let constant = match *n {
+                        1 => format!("    cbz x8, {}\n", loop_label),  
+                        2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n".to_string(),  
+                        4 => "    ands x8, x8, #0x000f000f000f000f\n".to_string(),  
+                        8 => "    ands x8, x8, #0x0000000f0000000f\n".to_string(),  
+                        _ => unreachable!(),
+                    };
+                    assembly.push_str(&format!("{}:\n", loop_label));  
+                    assembly.push_str("    ld1.16b {v0}, [x19], #16\n");  
+                    assembly.push_str("    cmeq.16b v0, v0, #0\n");        
+                    assembly.push_str("    shrn.8b v0, v0, #4\n");
+                    assembly.push_str("    fmov x8, d0\n");  
+                    assembly.push_str(&constant);  
+                    if *n != 1 {
+                        assembly.push_str(&format!("    b.eq {}\n", loop_label));
+                    }  
+                    assembly.push_str("    rbit x9, x8\n");  
+                    assembly.push_str("    clz x9, x9\n");  
+                    assembly.push_str("    ubfx x9, x9, #2, #30\n");
+                    assembly.push_str("    add x19, x19, x9\n"); 
+                    assembly.push_str("    sub x19, x19, #16\n");  
+                },                                                 
                 TokenType::Nop => {},
             }
         }
@@ -194,7 +174,7 @@ impl ArmCompiler {
             \tbl _free\n\
             \tldp x19, x20, [sp], #16\n\
             \tldp x29, x30, [sp], #16\n\
-            \teor w0, w0, w0\n\
+            \tmov w0, #0\n\
             \tret\n\
             "
         );
