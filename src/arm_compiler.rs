@@ -161,8 +161,8 @@ impl ArmCompiler {
                     assembly.push_str("    rbit x9, x8\n");  
                     assembly.push_str("    clz x9, x9\n");  
                     assembly.push_str("    ubfx x9, x9, #2, #30\n");
-                    assembly.push_str("    add x19, x19, x9\n"); 
                     assembly.push_str("    sub x19, x19, #16\n");  
+                    assembly.push_str("    add x19, x19, x9\n"); 
                 },                                                 
                 TokenType::Nop => {},
             }
