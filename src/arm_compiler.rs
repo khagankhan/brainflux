@@ -141,11 +141,10 @@ impl ArmCompiler {
                 TokenType::MemoryScan(n) => { 
                     let loop_label = format!("loop_memory_scan{}", label_counter);
                     label_counter += 1;
-                    
                     // After the zeros in different indexes are found the following ands
                     // keep only the ones in the exact posiitions we want so rbit+clz find
                     // only the ones in the positions we want.
-                    let constant = match *n {
+                    let constant = match n.abs() {
                         // [>]: if reegister is zero (not found (no xf)) jump back.
                         1 => &format!("    cbz x8, {}\n", loop_label), 
                         // For [>>] since it moves pointer two times, keep the ones in even position: 0, 2, 4 ... 
@@ -157,24 +156,36 @@ impl ArmCompiler {
                         _ => unreachable!(),
                     };
                     // Apply the finding the first matching logic
-                    assembly.push_str(&format!("{}:\n", loop_label));  
-                    assembly.push_str("    ld1.16b {v0}, [x19], #16\n");  
-                    assembly.push_str("    cmeq.16b v0, v0, #0\n");        
+                    assembly.push_str(&format!("{}:\n", loop_label));
+                    if *n > 0 {
+                        assembly.push_str("    ld1.16b {v0}, [x19], #16\n");
+                    } else {
+                        assembly.push_str("    sub x19, x19, #15\n");  
+                        assembly.push_str("    ld1.16b {v0}, [x19]\n");
+                        assembly.push_str("    rev64.16b	v0, v0\n");  
+                        assembly.push_str("    ext.16b	v0, v0, v0, #8\n");  
+                    }
+                    assembly.push_str("    cmeq.16b v0, v0, #0\n"); 
                     assembly.push_str("    shrn.8b v0, v0, #4\n");
                     assembly.push_str("    fmov x8, d0\n");  
                     assembly.push_str(constant);  
-                    if *n != 1 {
+                    if n.abs() != 1 {
                         // If zero flag is set, it means ands found no matching 0s in the desires position
                         // So we simply jump to the loop again
                         assembly.push_str(&format!("    b.eq {}\n", loop_label));
                     }  
-                    // Since we do not have ctz in ARM we use rbit + clz instead
+                    // Since we do not have ctz (count trailing zeros) in ARM we use rbit + clz (reverse and count leading zeros) instead
                     assembly.push_str("    rbit x9, x8\n");  
                     assembly.push_str("    clz x9, x9\n");  
                     // We have additional post increment +16. So we must decrement that firstly
-                    assembly.push_str("    sub x19, x19, #16\n");  
+                    if *n > 0 {
+                        assembly.push_str("    sub x19, x19, #16\n"); 
+                        assembly.push_str("    add x19, x19, x9, lsr #2\n");  
+                    } else {
+                        assembly.push_str("    sub x19, x19, x9, lsr #2\n"); 
+                        assembly.push_str("    add x19, x19, #15\n");  // 15 appears to be working for serprtri but crashes tictactoe
+                    }
                     // Divide by four and increment the pointer
-                    assembly.push_str("    add x19, x19, x9, lsr #2\n"); 
                 },                                                 
                 TokenType::Nop => {},
             }
@@ -195,3 +206,5 @@ impl ArmCompiler {
         Ok(())
     }
 }
+//  * * * * * * * * * * * * * * *     * * * * * * * * * * * * * * * *
+//
