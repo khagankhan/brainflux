@@ -147,13 +147,13 @@ impl ArmCompiler {
                     // only the ones in the positions we want.
                     let constant = match *n {
                         // [>]: if reegister is zero (not found (no xf)) jump back.
-                        1 => format!("    cbz x8, {}\n", loop_label), 
+                        1 => &format!("    cbz x8, {}\n", loop_label), 
                         // For [>>] since it moves pointer two times, keep the ones in even position: 0, 2, 4 ... 
-                        2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n".to_string(),
+                        2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n",
                         // For [>>>>] since it moves pointer four times, keep the ones in the positions divible by 4: 0, 4, 8, 12 
-                        4 => "    ands x8, x8, #0x000f000f000f000f\n".to_string(),
+                        4 => "    ands x8, x8, #0x000f000f000f000f\n",
                         // The above logic is the same for [>>>>>>>>] as well.  
-                        8 => "    ands x8, x8, #0x0000000f0000000f\n".to_string(),  
+                        8 => "    ands x8, x8, #0x0000000f0000000f\n",  
                         _ => unreachable!(),
                     };
                     // Apply the finding the first matching logic
@@ -162,7 +162,7 @@ impl ArmCompiler {
                     assembly.push_str("    cmeq.16b v0, v0, #0\n");        
                     assembly.push_str("    shrn.8b v0, v0, #4\n");
                     assembly.push_str("    fmov x8, d0\n");  
-                    assembly.push_str(&constant);  
+                    assembly.push_str(constant);  
                     if *n != 1 {
                         // If zero flag is set, it means ands found no matching 0s in the desires position
                         // So we simply jump to the loop again
