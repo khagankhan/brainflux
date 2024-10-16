@@ -2,7 +2,6 @@ use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler};
 use clap::Parser;
 use std::io::Read;
 use std::fmt::{self, Formatter, Display};
-use inline_colorization::*;
 
 #[derive(Debug)]
 pub struct Implementation {
@@ -30,29 +29,56 @@ pub enum TokenType {
     ZeroAndModify(Vec<(i32, i32)>),
     MemoryScan(i32),
 }
-
+impl TokenType {
+    pub fn to_html(&self) -> String {
+        match self {
+            TokenType::IncrementPointer => format!("<span style='color: red;'>&gt;</span>"),
+            TokenType::DecrementPointer => format!("<span style='color: red;'>&lt;</span>"),
+            TokenType::IncrementValue => format!("<span style='color: blue;'>+</span>"),
+            TokenType::DecrementValue => format!("<span style='color: blue;'>-</span>"),
+            TokenType::StdOut => format!("<span style='color: magenta;'>.</span>"),
+            TokenType::StdIn => format!("<span style='color: magenta;'>,</span>"),
+            TokenType::LoopStart => format!("<span style='color: balck;'>[</span>"),
+            TokenType::LoopEnd => format!("<span style='color: black;'>]</span>"),
+            TokenType::Nop => String::new(),
+            TokenType::IncrementValueN(n) => format!("<span style='color: blue;'>(+{})</span>", n),
+            TokenType::DecrementValueN(n) => format!("<span style='color: blue;'>(-{})</span>", n),
+            TokenType::IncrementPointerN(n) => format!("<span style='color: red;'>(>{})</span>", n),
+            TokenType::DecrementPointerN(n) => format!("<span style='color: red;'>(<{})</span>", n),
+            TokenType::MemoryScan(n) => format!("<span style='color: green;'>M({})</span>", n),
+            TokenType::ZeroAndModify(mods) => {
+                let mods_str: Vec<String> = mods.iter()
+                    .map(|(ptr, val)| format!("({}{})",
+                        if *ptr >= 0 { format!("<span style='color: red;'>&gt;{}</span>", ptr) } else { format!("<span style='color: red;'>&lt;{}</span>", -ptr) },
+                        if *val >= 0 { format!("<span style='color: blue;'>+{}</span>", val) } else { format!("<span style='color: blue;'>-{}</span>", -val) }))
+                    .collect();
+                format!("<span style='color: purple;'>Z[{}]</span>", mods_str.join(", "))
+            },
+        }
+    }
+}
 impl Display for TokenType {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let s = match self {
-            TokenType::IncrementPointer => &format!("{color_red}>{style_reset}"),
-            TokenType::DecrementPointer => &format!("{color_red}<{style_reset}"),
-            TokenType::IncrementValue => &format!("{color_blue}+{style_reset}"),
-            TokenType::DecrementValue => &format!("{color_blue}-{style_reset}"),
-            TokenType::StdOut => &format!("{color_magenta}.{style_reset}"),
-            TokenType::StdIn => &format!("{color_magenta},{style_reset}"),
+            TokenType::IncrementPointer => &format!(">"),
+            TokenType::DecrementPointer => &format!("<"),
+            TokenType::IncrementValue => &format!("+"),
+            TokenType::DecrementValue => &format!("-"),
+            TokenType::StdOut => &format!("."),
+            TokenType::StdIn => &format!(","),
             TokenType::LoopStart => "[",
             TokenType::LoopEnd => "]",
             TokenType::Nop => "",
-            TokenType::IncrementValueN(n) => &format!("{color_blue}(+{}){style_reset}", n),
-            TokenType::DecrementValueN(n) => &format!("{color_blue}(-{}){style_reset}", n),
-            TokenType::IncrementPointerN(n) => &format!("{color_red}(>{}){style_reset}", n),
-            TokenType::DecrementPointerN(n) => &format!("{color_red}(<{}){style_reset}", n),
-            TokenType::MemoryScan(n) => &format!("{color_green}M({}){style_reset}", n),
+            TokenType::IncrementValueN(n) => &format!("(+{})", n),
+            TokenType::DecrementValueN(n) => &format!("(-{})", n),
+            TokenType::IncrementPointerN(n) => &format!("(>{})", n),
+            TokenType::DecrementPointerN(n) => &format!("(<{})", n),
+            TokenType::MemoryScan(n) => &format!("M({})", n),
             TokenType::ZeroAndModify(mods) => {
                 let mods_str: Vec<String> = mods.iter()
                     .map(|(ptr, val)| format!("({}{})", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))
                     .collect();
-                &format!("{color_yellow}Z[{}]{style_reset}", mods_str.join(", "))
+                &format!("Z[{}]", mods_str.join(", "))
             },
         };
         f.write_str(s)

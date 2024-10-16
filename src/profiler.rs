@@ -1,5 +1,8 @@
 use crate::{implementation::TokenType, cli::BrainFluxError};
 use prettytable::{format, Table, row};
+use std::io::Write;
+use std::fs::OpenOptions;
+use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub struct Profiler{
@@ -50,82 +53,210 @@ impl Profiler {
     pub fn print_profile(&self, print_profiler: bool, tokens: &Vec<TokenType>)->BrainFluxError<()> {
         print!("\n");
         if print_profiler {
-            let mut simple_loop_chars: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
-            let mut updated_tokens: Vec<String> = Vec::with_capacity(tokens.len());
+            let mut simple_loop_chars_html: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
+            let mut updated_tokens_html: Vec<String> = Vec::with_capacity(tokens.len());
+            let mut simple_loop_chars_string: Vec<(usize, String, u32)> = Vec::with_capacity(tokens.len());
+            let mut updated_tokens_string: Vec<String> = Vec::with_capacity(tokens.len());
             // Collecting simple_loop_chars
             for index in self.simple_loop.iter() {
                 let chars: String = self.count_vector[index.0..(index.1 + 1)]
                     .iter()
-                    .map(|item| item.0.clone().to_string()) 
+                    .map(|item| item.0.clone().to_html()) 
                     .collect();
-                simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+                simple_loop_chars_html.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+                let chars_string: String = self.count_vector[index.0..(index.1 + 1)]
+                .iter()
+                .map(|item| item.0.clone().to_string()) 
+                .collect();
+                simple_loop_chars_string.push((index.0, chars_string, self.count_vector.get(index.1).unwrap().1));
             }
             for index in self.simple_loop.iter() {
                 let chars: String = tokens[index.0..(index.1 + 1)]
                     .iter()
+                    .map(|item| item.clone().to_html()) 
+                    .collect();
+                updated_tokens_html.push(chars);
+
+                let chars_string: String = tokens[index.0..(index.1 + 1)]
+                    .iter()
                     .map(|item| item.clone().to_string()) 
                     .collect();
-                updated_tokens.push(chars);
+                updated_tokens_string.push(chars_string);
             }
             // Create a vector of indices based on the original order
-            let mut indices: Vec<usize> = (0..simple_loop_chars.len()).collect();
+            let mut indices: Vec<usize> = (0..simple_loop_chars_html.len()).collect();
             // Sort the indices based on the sorting of simple_loop_chars
-            indices.sort_by(|&i, &j| simple_loop_chars[j].2.cmp(&simple_loop_chars[i].2));
+            indices.sort_by(|&i, &j| simple_loop_chars_html[j].2.cmp(&simple_loop_chars_html[i].2));
             // Rearrange updated_tokens based on the sorted indices
-            let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens[i].clone()).collect();
+            let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens_html[i].clone()).collect();
+            let sorted_updated_tokens_string: Vec<_> = indices.iter().map(|&i| updated_tokens_string[i].clone()).collect();
             // Now sort simple_loop_chars the same way
-            simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+            simple_loop_chars_html.sort_by(|a, b| b.2.cmp(&a.2));
+            simple_loop_chars_string.sort_by(|a, b| b.2.cmp(&a.2));
             // Display the result in the table
-            let mut i: i32 = 0;
             let mut table = Table::new();
             println!("\t\t\t\t\tSimple innermost loops:");
             table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
-            
-            for (index, character, count) in &simple_loop_chars {
-                table.add_row([index.to_string(), character.clone(), count.to_string(), sorted_updated_tokens[i as usize].clone()].into());
+            let mut i = 0;
+            let mut test_vec: Vec<Vec<String>> = Vec::with_capacity(tokens.len()*4);
+            for index in 0..simple_loop_chars_html.len() {
+                let vec = [index.to_string(), simple_loop_chars_html[i].1.clone(), simple_loop_chars_html[i].2.to_string(), sorted_updated_tokens[i].clone()].to_vec();
+                test_vec.push(vec);
+                let vec = [index.to_string(), simple_loop_chars_string[i].1.clone(), simple_loop_chars_string[i].2.to_string(), sorted_updated_tokens_string[i].clone()].to_vec();
+                table.add_row(vec.into());
                 i += 1;
-            }
-            
+            } 
             table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-            table.printstd();            
+            table.printstd();
+            Self::generate_html(&test_vec, "simple_loops.html")?;         
            //////////////////////////// NON-SIMPLE LOOPS ////////////////////////////
-           let mut non_simple_loop_chars: Vec<(usize, String, u32)> = Vec::new();
+           let mut non_simple_loop_chars_html: Vec<(usize, String, u32)> = Vec::new();
+           let mut non_simple_loop_chars_string: Vec<(usize, String, u32)> = Vec::new();
            // Collecting non_simple_loop_chars
            for index in self.non_simple_loop.iter() {
                let chars: String = self.count_vector[index.0..(index.1 + 1)]
                    .iter()
-                   .map(|item| item.0.clone().to_string()) 
+                   .map(|item| item.0.clone().to_html()) 
                    .collect();
-               non_simple_loop_chars.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+               non_simple_loop_chars_html.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
+               let chars: String = self.count_vector[index.0..(index.1 + 1)]
+               .iter()
+               .map(|item| item.0.clone().to_string()) 
+               .collect();
+               non_simple_loop_chars_string.push((index.0, chars, self.count_vector.get(index.1).unwrap().1));
            }
            // Clear and collect updated_tokens for non-simple loops
-           updated_tokens.clear();
+           updated_tokens_html.clear();
+           updated_tokens_string.clear();
            for index in self.non_simple_loop.iter() {
                let chars: String = tokens[index.0..(index.1 + 1)]
                    .iter()
-                   .map(|item| item.clone().to_string()) 
+                   .map(|item| item.clone().to_html()) 
                    .collect();
-               updated_tokens.push(chars);
+               updated_tokens_html.push(chars);
+               let chars: String = tokens[index.0..(index.1 + 1)]
+               .iter()
+               .map(|item| item.clone().to_string()) 
+               .collect();
+               updated_tokens_string.push(chars);
            }
            // Create a vector of indices based on the original order of non_simple_loop_chars
-           let mut indices: Vec<usize> = (0..non_simple_loop_chars.len()).collect();
+           let mut indices: Vec<usize> = (0..non_simple_loop_chars_html.len()).collect();
            // Sort the indices based on the sorting of non_simple_loop_chars (by third element)
-           indices.sort_by(|&i, &j| non_simple_loop_chars[j].2.cmp(&non_simple_loop_chars[i].2));
+           indices.sort_by(|&i, &j| non_simple_loop_chars_html[j].2.cmp(&non_simple_loop_chars_html[i].2));
            // Rearrange updated_tokens based on the sorted indices
-           let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens[i].clone()).collect();
+           let sorted_updated_tokens: Vec<_> = indices.iter().map(|&i| updated_tokens_html[i].clone()).collect();
+           let sorted_updated_tokens_string: Vec<_> = indices.iter().map(|&i| updated_tokens_string[i].clone()).collect();
            // Sort non_simple_loop_chars the same way
-           non_simple_loop_chars.sort_by(|a, b| b.2.cmp(&a.2));
+           non_simple_loop_chars_html.sort_by(|a, b| b.2.cmp(&a.2));
+           non_simple_loop_chars_string.sort_by(|a, b| b.2.cmp(&a.2));
            // Display the result in the table
-           println!("\t\t\tNon_simple innermost loops:");
            let mut table = Table::new();
+           println!("\t\t\t\t\tNon-simple innermost loops:");
            table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
            let mut i = 0;
-           for (index, character, count) in &non_simple_loop_chars {
-               table.add_row([index.to_string(), character.clone(), count.to_string(), sorted_updated_tokens[i].clone()].into());
+           let mut test_vec: Vec<Vec<String>> = Vec::with_capacity(tokens.len()*4);
+           for index in 0..non_simple_loop_chars_html.len() {
+               let vec = [index.to_string(), non_simple_loop_chars_html[i].1.clone(), non_simple_loop_chars_html[i].2.to_string(), sorted_updated_tokens[i].clone()].to_vec();
+               test_vec.push(vec);
+               let vec = [index.to_string(), non_simple_loop_chars_string[i].1.clone(), non_simple_loop_chars_string[i].2.to_string(), sorted_updated_tokens_string[i].clone()].to_vec();
+               table.add_row(vec.into());
                i += 1;
-           }
+           } 
            table.set_format(*format::consts::FORMAT_NO_LINESEP_WITH_TITLE);
-           table.printstd();           
+           table.printstd();
+           Self::generate_html(&test_vec, "non_simple_loops.html")?;            
+        }
+        Ok(())
+    }        
+    fn generate_html(test_vec: &Vec<Vec<String>>, file_path: &str) -> BrainFluxError<()> {
+        let prologue = r#"
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Colored Loop Profiling</title>
+                <style>
+                    table {
+                        width: 100%;
+                        margin: 20px auto;
+                        border-collapse: collapse;
+                    }
+                    th, td {
+                        padding: 10px;
+                        text-align: left;
+                        border: 1px solid black;
+                    }
+                    th {
+                        background-color: #f2f2f2;
+                    }
+                    td {
+                        white-space: pre-wrap;
+                    }
+                    /* Expand the first column */
+                    td:nth-child(2) {
+                        width: 40%; 
+                        max-width: 500px; 
+                        word-wrap: break-word;  
+                        word-break: break-all; 
+                        white-space: normal;  
+                    }                    
+                    td:nth-child(4) {
+                        width:60%; 
+                        min-width: 300px; 
+                    }
+                    
+                </style>
+            </head>
+            <body>
+        "#;
+        let epilogue = r#"
+            </body>
+            </html>
+        "#;
+        let table_prologue = r#"
+            <table>
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Original Loop</th>
+                        <th>Number of Executions</th>
+                        <th>After Optimizations</th> <!-- Fourth column -->
+                    </tr>
+                </thead>
+                <tbody>
+        "#;
+    
+        let table_epilogue = r#"
+                </tbody>
+            </table>
+            <br/> <!-- Add a line break between tables -->
+        "#;
+        let file_exists = Path::new(file_path).exists();
+        // Open the file in append mode
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(file_path)?;
+    
+        if !file_exists {
+            writeln!(file, "{}", prologue)?;
+        }
+        writeln!(file, "{}", table_prologue)?;
+        for row in test_vec {
+            writeln!(
+                file,
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>",
+                row[0],
+                row[1],
+                row[2],
+                row[3]
+            )?;
+        }
+        writeln!(file, "{}", table_epilogue)?;
+        if !file_exists {
+            writeln!(file, "{}", epilogue)?;
         }
         Ok(())
     }

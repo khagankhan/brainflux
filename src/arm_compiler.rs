@@ -141,7 +141,6 @@ impl ArmCompiler {
                 TokenType::MemoryScan(n) => { 
                     let loop_label = format!("loop_memory_scan{}", label_counter);
                     label_counter += 1;
-                    
                     // After the zeros in different indexes are found the following ands
                     // keep only the ones in the exact posiitions we want so rbit+clz find
                     // only the ones in the positions we want.
