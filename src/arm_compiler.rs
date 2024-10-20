@@ -8,7 +8,7 @@ use std::io::Write;
 pub struct ArmCompiler;
 
 impl ArmCompiler {
-    pub fn arm_compiler(tokens: &mut Vec<TokenType>, optimize: bool) -> BrainFluxError<()> {
+    pub fn arm_compiler(tokens: &mut Vec<TokenType>, print_profiler: bool, optimize: bool) -> BrainFluxError<()> {
         let mut profiler = Profiler::with_tokens(tokens);
         let mut n = 0;
         while n < 1 {
@@ -16,9 +16,9 @@ impl ArmCompiler {
             Optimize::phase1(tokens, optimize, &profiler)?;
             n += 1;
         }
-        profiler.print_profile(true, &tokens)?;
+        profiler.print_profile(print_profiler, &tokens)?;
         profiler.loop_profiling(tokens);
-        profiler.print_profile(true, &tokens)?;
+        profiler.print_profile(print_profiler, &tokens)?;
         // Prologue
         let mut assembly = String::from(
             "\t.text\n\
@@ -42,7 +42,7 @@ impl ArmCompiler {
         let mut loop_counter = 0;
         let mut loop_stack = Vec::with_capacity(64);
         let mut label_counter = 0;
-        for (_index, token)in tokens.iter().enumerate() {
+        for (_, token)in tokens.iter().enumerate() {
             match token {
                 TokenType::IncrementPointer => {
                     assembly.push_str("    add x19, x19, #1\n");
@@ -112,32 +112,44 @@ impl ArmCompiler {
                     }
                 },
                 TokenType::ZeroAndModify(modifications) => {
-                    assembly.push_str("    ldrb w1, [x19]\n");
-                    assembly.push_str("    mov w2, wzr\n");  
-                    assembly.push_str("    strb w2, [x19]\n");
-
-                    for (n, m) in modifications {
-                        if *n == 0 {
-                            continue;
+                    // First, handle zeroing cases for current memory cell
+                    if let Some((_, m)) = modifications.iter().find(|(n, _)| *n == 0) {
+                        assembly.push_str("    ldrb w1, [x19]\n");  // Load current memory cell into w1
+                        match *m {
+                            -1 => {
+                                // Handle [-] zeroing case
+                                assembly.push_str("    strb wzr, [x19]\n");  // Store zero in current cell
+                            },
+                            1 => {
+                                // Handle [+] zeroing case (overflow)
+                                assembly.push_str("    mov w2, #256\n");     // Load 256 into w2
+                                assembly.push_str("    sub w1, w2, w1\n");   // w1 = 256 - w1
+                                assembly.push_str("    strb wzr, [x19]\n");  // Store zero in current cell
+                            },
+                            _ => unreachable!("[-] Error: Simple loops should change the current cell either by +1 or -1 each iteration")
                         }
-                        assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load with offset
-                        if *m == 1 {
-                            // Direct addition: w2 += w1
-                            assembly.push_str("    add w2, w2, w1\n");  // w2 = w2 + w1
-                        } else if *m == -1 {
-                            // Direct subtraction: w2 -= w1
-                            assembly.push_str("    sub w2, w2, w1\n");  // w2 = w2 - w1
-                        } else if *m > 0 {
-                            assembly.push_str(&format!("    mov w3, #{}\n", m));  // Move multiplier m into w3
-                            assembly.push_str("    madd w2, w1, w3, w2\n");  // w2 = (w1 * w3) + w2
-    
-                        } else if *m < 0 {
-                            assembly.push_str(&format!("    mov w3, #{}\n", -m));  // Move negative multiplier -m into w3
-                            assembly.push_str("    msub w2, w1, w3, w2\n");  // w2 = (w1 * w3) - w2
-                        }
-                        assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n)); // Store back with offset
                     }
-                },      
+                    // Then, handle the modification of other memory cells
+                    for (n, m) in modifications.iter().filter(|(n, _)| *n != 0) {
+                        assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load memory at offset n into w2
+                        match *m {
+                            1 => assembly.push_str("    add w2, w2, w1\n"),  // Direct addition: w2 += w1
+                            -1 => assembly.push_str("    sub w2, w2, w1\n"), // Direct subtraction: w2 -= w1
+                            m if m > 0 => {
+                                // Multiplication and addition: w2 = (w1 * m) + w2
+                                assembly.push_str(&format!("    mov w3, #{}\n", m));  
+                                assembly.push_str("    madd w2, w1, w3, w2\n");
+                            },
+                            m if m < 0 => {
+                                // Multiplication and subtraction: w2 = w2 - (w1 * abs(m))
+                                assembly.push_str(&format!("    mov w3, #{}\n", -m));  
+                                assembly.push_str("    msub w2, w1, w3, w2\n");
+                            },
+                            _ => {}
+                        }
+                        assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n));  // Store back to memory
+                    }
+                },                
                 TokenType::MemoryScan(n) => { 
                     let loop_label = format!("loop_memory_scan{}", label_counter);
                     label_counter += 1;
@@ -153,7 +165,7 @@ impl ArmCompiler {
                         4 => "    ands x8, x8, #0x000f000f000f000f\n",
                         // The above logic is the same for [>>>>>>>>] as well.  
                         8 => "    ands x8, x8, #0x0000000f0000000f\n",  
-                        _ => unreachable!(),
+                        _ => unreachable!("[-] Error: Pointer incrementation should be a power of 2"),
                     };
                     // Apply the finding the first matching logic
                     assembly.push_str(&format!("{}:\n", loop_label));  
