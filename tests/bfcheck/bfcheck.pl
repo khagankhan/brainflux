@@ -17,7 +17,7 @@ sub run {
     my $base = $1;
     # Run the compiler to generate assembly and binary
     print "Compiling $f to assembly...\n";
-    system("../../../target/release/brainflux -t arm64 $f");
+    system("../../target/release/brainflux -t arm64 $f");
     # Check if assembly was generated
     die "Assembly generation failed for $f\n" unless -f "output.s";
     # Move the generated assembly to the correct filename
