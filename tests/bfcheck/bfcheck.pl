@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+# NOTE: This tests have been provided by Prof. Dr. John Regehr. The outputs refer to his implementation.
+# If you see the bug in the reference implementation please let me know.
+
 use strict;
 my @bfs = glob "prog-*.b";
 
