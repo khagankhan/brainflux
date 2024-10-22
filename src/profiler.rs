@@ -98,7 +98,7 @@ impl Profiler {
             table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
             let mut i = 0;
             let mut test_vec: Vec<Vec<String>> = Vec::with_capacity(tokens.len()*4);
-            for index in 0..simple_loop_chars_html.len() {
+            for _ in 0..simple_loop_chars_html.len() {
                 let vec = [simple_loop_chars_html[i].0.to_string(), simple_loop_chars_html[i].1.clone(), simple_loop_chars_html[i].2.to_string(), sorted_updated_tokens[i].clone()].to_vec();
                 test_vec.push(vec);
                 let vec = [simple_loop_chars_string[i].0.to_string(), simple_loop_chars_string[i].1.clone(), simple_loop_chars_string[i].2.to_string(), sorted_updated_tokens_string[i].clone()].to_vec();
@@ -155,7 +155,7 @@ impl Profiler {
            table.set_titles(row!["Index", "Original loop", "#Execs", "After the optimization phase"]);
            let mut i = 0;
            let mut test_vec: Vec<Vec<String>> = Vec::with_capacity(tokens.len()*4);
-           for index in 0..non_simple_loop_chars_html.len() {
+           for _ in 0..non_simple_loop_chars_html.len() {
                let vec = [non_simple_loop_chars_html[i].0.to_string(), non_simple_loop_chars_html[i].1.clone(), non_simple_loop_chars_html[i].2.to_string(), sorted_updated_tokens[i].clone()].to_vec();
                test_vec.push(vec);
                let vec = [non_simple_loop_chars_string[i].0.to_string(), non_simple_loop_chars_string[i].1.clone(), non_simple_loop_chars_string[i].2.to_string(), sorted_updated_tokens_string[i].clone()].to_vec();

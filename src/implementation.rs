@@ -147,7 +147,7 @@ impl Implementation {
         }
         if !loop_stack.is_empty() {
             eprintln!("[-] Error: Unmatched '[' at position {}",
-                loop_stack.pop().unwrap() // It is not empty can unwra()
+                loop_stack.pop().unwrap() // It is not empty can unwrap()
             );
             std::process::exit(-1);
         }
