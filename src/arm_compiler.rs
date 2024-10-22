@@ -163,7 +163,7 @@ impl ArmCompiler {
                         2 => "    ands x8, x8, #0x0f0f0f0f0f0f0f0f\n",
                         // For [>>>>] since it moves pointer four times, keep the ones in the positions divible by 4: 0, 4, 8, 12 
                         4 => "    ands x8, x8, #0x000f000f000f000f\n",
-                        // The above logic is the same for [>>>>>>>>] as well.  
+                        // The above logic is the same for [>>>>>>>>] as well. Not sure if it make it faster for 8. 
                         8 => "    ands x8, x8, #0x0000000f0000000f\n",  
                         _ => unreachable!("[-] Error: Pointer incrementation should be a power of 2"),
                     };
