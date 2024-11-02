@@ -14,11 +14,14 @@ impl ArmCompiler {
         while n < 1 {
             profiler.loop_profiling(tokens);
             Optimize::phase1(tokens, optimize, &profiler)?;
+            profiler.loop_profiling(tokens);
             n += 1;
         }
         profiler.print_profile(print_profiler, &tokens)?;
         profiler.loop_profiling(tokens);
+        Optimize::phase2(tokens, optimize, &profiler)?;
         profiler.print_profile(print_profiler, &tokens)?;
+        println!("{:?}", tokens);
         // Prologue
         let mut assembly = String::from(
             "\t.text\n\
@@ -113,7 +116,7 @@ impl ArmCompiler {
                 },
                 TokenType::ZeroAndModify(modifications) => {
                     // First, handle zeroing cases for current memory cell
-                    if let Some((_, m)) = modifications.iter().find(|(n, _)| *n == 0) {
+                    if let Some((_, m, _)) = modifications.iter().find(|(n, _, p)| *n == 0 && *p == 0) {
                         assembly.push_str("    ldrb w1, [x19]\n");  // Load current memory cell into w1
                         match *m {
                             -1 => {
@@ -129,8 +132,54 @@ impl ArmCompiler {
                             _ => unreachable!("[-] Error: Simple loops should change the current cell either by +1 or -1 each iteration")
                         }
                     }
+                    for (n, m,p) in modifications.iter().filter(|(_, _, p)| *p != 0) {
+                        let cell_offset_from_inner_loop = *n;
+                        let value_in_inner_loop = *m;
+                        let inner_loop_offset_from_outer_loop = *p;
+                        let cell_offset_from_outer_loop = inner_loop_offset_from_outer_loop + cell_offset_from_inner_loop;
+                        // Load the value of the inner loop beginning
+                        assembly.push_str(&format!("    ldrb w3, [x19, #{}]\n", inner_loop_offset_from_outer_loop));  
+                        if *n == 0 {
+                            match value_in_inner_loop {
+                                -1 => {
+                                    assembly.push_str(&format!("    strb wzr, [x19, #{}]\n", inner_loop_offset_from_outer_loop));
+                                },
+                                1 => {
+                                    // Handle [+] zeroing case (overflow)
+                                    assembly.push_str("    mov w2, #256\n");     // Load 256 into w2
+                                    assembly.push_str("    sub w3, w2, w3\n");   // w1 = 256 - w1
+                                    assembly.push_str(&format!("    strb wzr, [x19, #{}]\n", inner_loop_offset_from_outer_loop));
+                                },
+                                _ => unreachable!("[-] Error: expected -1 or +! in the simple loop got: {}", value_in_inner_loop)
+
+                            }
+                            continue;
+                        }
+                        assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", cell_offset_from_outer_loop));  // Load memory at offset n into w2
+                        assembly.push_str("     mul w3, w1, w3\n");   
+                        match value_in_inner_loop {
+                            1 => assembly.push_str("    add w2, w2, w3\n"),  // Direct addition: w2 += w1
+                            -1 => assembly.push_str("    sub w2, w2, w3\n"), // Direct subtraction: w2 -= w1
+                            m if m > 0 => {
+                                // Multiplication and addition: w2 = (w1 * m) + w2
+                                assembly.push_str(&format!("    mov w4, #{}\n", m));  
+                                assembly.push_str("    madd w2, w3, w4, w2\n");
+                            },
+                            m if m < 0 => {
+                                // Multiplication and subtraction: w2 = w2 - (w1 * abs(m))
+                                assembly.push_str(&format!("    mov w4, #{}\n", -m));  
+                                assembly.push_str("    msub w2, w3, w4, w2\n");
+                            },
+                            _ => {}
+                        }
+                        assembly.push_str(&format!("    strb w2, [x19, #{}]\n", cell_offset_from_outer_loop));  // Store back to memory
+
+                    }
                     // Then, handle the modification of other memory cells
-                    for (n, m) in modifications.iter().filter(|(n, _)| *n != 0) {
+                    for (n, m,_) in modifications.iter().filter(|(_, _, p)| *p == 0) {
+                        if *n == 0 {
+                            continue;
+                        }
                         assembly.push_str(&format!("    ldrb w2, [x19, #{}]\n", n));  // Load memory at offset n into w2
                         match *m {
                             1 => assembly.push_str("    add w2, w2, w1\n"),  // Direct addition: w2 += w1
@@ -149,7 +198,7 @@ impl ArmCompiler {
                         }
                         assembly.push_str(&format!("    strb w2, [x19, #{}]\n", n));  // Store back to memory
                     }
-                },                
+                },   
                 TokenType::MemoryScan(n) => { 
                     let loop_label = format!("loop_memory_scan{}", label_counter);
                     label_counter += 1;

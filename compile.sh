@@ -14,7 +14,7 @@ base_name="${base_name%.*}"    # Removes the extension
 
 # Run the compiler to generate the assembly file
 echo "Generating assembly for $input_file using brainflux"
-./target/release/brainflux -t arm64 --optimize "$input_file"
+./target/release/brainflux --profile -t arm64 --optimize "$input_file"
 
 # Check if the expected assembly file 'output.s' was generated
 if [ ! -f "output.s" ]; then

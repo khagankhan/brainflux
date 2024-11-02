@@ -16,6 +16,12 @@ impl Optimize {
         }
         Ok(())
     }
+    pub fn phase2(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
+        if optimize {
+            Self::simple_loop_optimization(profiler, tokens)?;
+        }
+        Ok(())
+    }
     // The following sum_increment_decrement_pointers and the sum_increment_decrement_values
     // Just sums up the number of consecutive Increments to IncrementN(n) token and then supersedes the
     // index of the first Increment/Decrement token with update IncrementN/DecrementN token
@@ -221,15 +227,20 @@ impl Optimize {
         Ok(())
     }
     // Function to calculate multiple target modifications
-    fn calculate_multi_modifications(loop_tokens: &[TokenType]) -> Vec<(i32, i32)> {
-        let mut modifications = Vec::new();
+    fn calculate_multi_modifications(loop_tokens: &[TokenType]) -> Vec<(i32, i32, i32)> {
+        let mut modifications: Vec<(i32, i32, i32)> = Vec::new();
         let mut pointer_offset = 0;
         for token in loop_tokens {
             match token {
                 TokenType::IncrementPointerN(n) => pointer_offset += n,
                 TokenType::DecrementPointerN(n) => pointer_offset -= n,
-                TokenType::IncrementValueN(m) => modifications.push((pointer_offset, *m)),
-                TokenType::DecrementValueN(m) => modifications.push((pointer_offset, -*m)),
+                TokenType::IncrementValueN(m) => modifications.push((pointer_offset, *m, 0)),
+                TokenType::DecrementValueN(m) => modifications.push((pointer_offset, -*m, 0)),
+                TokenType::ZeroAndModify(v) => {
+                    for (ptr, val, _) in v {
+                        modifications.push((*ptr, *val, pointer_offset));
+                    }
+                }
                 _ => {}
             }
         }

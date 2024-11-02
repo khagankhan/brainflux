@@ -79,30 +79,30 @@ impl Interpreter {
                 TokenType::DecrementPointerN(n) => {
                     interpreter.dp = interpreter.dp.wrapping_sub(n.clone() as usize);
                 },
-                TokenType::ZeroAndModify(modifications) => {
-                    // Load the current cell's value (the loop counter)
-                    let loop_counter = interpreter.dt[interpreter.dp];
-                    // Zero the current cell (as per the loop)
-                    interpreter.dt[interpreter.dp] = 0;
-                    let temp = interpreter.dp;
-                    // Apply the modifications by multiplying the loop counter
-                    let mut index;
-                    for (offset, value) in modifications {
-                        if *offset > 0 {
-                            index = temp.wrapping_add(*offset as usize); 
-                        } else if *offset < 0 {
-                            index = temp.wrapping_sub((-(*offset)) as usize); 
-                        } else {
-                            continue;
-                        }
-                        let applied_value = (loop_counter as i32).wrapping_mul(*value);  // Multiply the counter by value
-                        if applied_value > 0 {
-                            interpreter.dt[index] = interpreter.dt[index].wrapping_add(applied_value as u8);
-                        } else if applied_value < 0 {
-                            interpreter.dt[index] = interpreter.dt[index].wrapping_sub((-applied_value ) as u8);
-                        }
-                    }
-                },                
+                // TokenType::ZeroAndModify(modifications) => {
+                //     // Load the current cell's value (the loop counter)
+                //     let loop_counter = interpreter.dt[interpreter.dp];
+                //     // Zero the current cell (as per the loop)
+                //     interpreter.dt[interpreter.dp] = 0;
+                //     let temp = interpreter.dp;
+                //     // Apply the modifications by multiplying the loop counter
+                //     let mut index;
+                //     for (offset, value) in modifications {
+                //         if *offset > 0 {
+                //             index = temp.wrapping_add(*offset as usize); 
+                //         } else if *offset < 0 {
+                //             index = temp.wrapping_sub((-(*offset)) as usize); 
+                //         } else {
+                //             continue;
+                //         }
+                //         let applied_value = (loop_counter as i32).wrapping_mul(*value);  // Multiply the counter by value
+                //         if applied_value > 0 {
+                //             interpreter.dt[index] = interpreter.dt[index].wrapping_add(applied_value as u8);
+                //         } else if applied_value < 0 {
+                //             interpreter.dt[index] = interpreter.dt[index].wrapping_sub((-applied_value ) as u8);
+                //         }
+                //     }
+                // },                
                 _ => {},
             }
             interpreter.pp += 1;

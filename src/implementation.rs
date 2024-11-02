@@ -26,9 +26,8 @@ pub enum TokenType {
     DecrementValueN(i32),
     IncrementPointerN(i32),
     DecrementPointerN(i32),
-    ZeroAndModify(Vec<(i32, i32)>),
-    MemoryScan(i32),
-}
+    ZeroAndModify(Vec<(i32, i32, i32)>),
+    MemoryScan(i32),}
 impl TokenType {
     pub fn to_html(&self) -> String {
         match self {
@@ -48,9 +47,10 @@ impl TokenType {
             TokenType::MemoryScan(n) => format!("<span style='color: green;'>M({})</span>", n),
             TokenType::ZeroAndModify(mods) => {
                 let mods_str: Vec<String> = mods.iter()
-                    .map(|(ptr, val)| format!("({}{})",
+                    .map(|(ptr, val, nes)| format!("({}{}{})",
                         if *ptr >= 0 { format!("<span style='color: red;'>&gt;{}</span>", ptr) } else { format!("<span style='color: red;'>&lt;{}</span>", -ptr) },
-                        if *val >= 0 { format!("<span style='color: blue;'>+{}</span>", val) } else { format!("<span style='color: blue;'>-{}</span>", -val) }))
+                        if *val >= 0 { format!("<span style='color: blue;'>+{}</span>", val) } else { format!("<span style='color: blue;'>-{}</span>", -val) },
+                        if *nes >= 0 { format!("<span style='color: orange;'>&gt;{}</span>", nes) } else { format!("<span style='color: orange;'>&lt;{}</span>", -nes) } ))
                     .collect();
                 format!("<span style='color: purple;'>Z[{}]</span>", mods_str.join(", "))
             },
@@ -76,7 +76,9 @@ impl Display for TokenType {
             TokenType::MemoryScan(n) => &format!("M({})", n),
             TokenType::ZeroAndModify(mods) => {
                 let mods_str: Vec<String> = mods.iter()
-                    .map(|(ptr, val)| format!("({}{})", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) }))
+                    .map(|(ptr, val, nes)| format!("({}{}{})", if *ptr >= 0 { format!(">{}", ptr) } else { format!("<{}", -ptr) }, 
+                        if *val >= 0 { format!("+{}", val) } else { format!("-{}", -val) },
+                        if *nes >= 0 { format!(">{}", nes) } else { format!("<{}", -nes) }))
                     .collect();
                 &format!("Z[{}]", mods_str.join(", "))
             },
