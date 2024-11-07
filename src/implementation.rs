@@ -1,5 +1,5 @@
-use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler};
-use clap::{Parser, Error};
+use crate::{cli::*, interpreter::Interpreter, arm_compiler::ArmCompiler, llvm_compiler::LLVMCompiler};
+use clap::Parser;
 use std::io::Read;
 use std::fmt::{self, Formatter, Display};
 
@@ -113,6 +113,7 @@ impl Implementation {
             "x86-64" | "x64" => self.x64_compiler(&tokens)?,
             "arm64" | "a64"  => self.arm_compiler(&mut tokens, print_profiler, optimize)?,
             "webassembly" | "wasm" => self.wasm_compiler(&tokens)?,
+            "llvm" | "llvm-compiler" => self.llvm_compiler(&mut tokens, print_profiler, optimize)?,
             _ => {
                 eprintln!("[-] Error: Invalid target.\n[+]Usage: --test-target <interp/x86-64/arm64/wasm>");
                 std::process::exit(64);
@@ -173,6 +174,10 @@ impl Implementation {
     /// Wasm compiler that directly compiles to the Wasm code
     fn wasm_compiler(&mut self, tokens: &Vec<TokenType>) -> BrainFluxError<()> {
         println!("Place Holder: Wasm compiler will be implemented");
+        Ok(())
+    }
+    fn llvm_compiler(&mut self, tokens: &mut Vec<TokenType>, print_profiler: bool, optimize: bool) -> BrainFluxError<()> {
+        LLVMCompiler::llvm_compiler(tokens, print_profiler, optimize)?;
         Ok(())
     }
 }

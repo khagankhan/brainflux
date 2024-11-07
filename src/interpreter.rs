@@ -12,7 +12,9 @@ impl Interpreter {
         let mut n = 0;
         while n < 1 {
             profiler.loop_profiling(tokens);
-            Optimize::phase1(tokens, optimize, &profiler)?;
+            Optimize::basic_optimization(tokens, optimize, &profiler)?;
+            Optimize::simple_loop(tokens, optimize, &profiler)?;        
+            Optimize::memory_scan(tokens, optimize, &profiler)?;
             n += 1;
         }
         while interpreter.pp < tokens.len() {

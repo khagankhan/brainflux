@@ -11,11 +11,11 @@ impl ArmCompiler {
     pub fn arm_compiler(tokens: &mut Vec<TokenType>, print_profiler: bool, optimize: bool) -> BrainFluxError<()> {
         let mut profiler = Profiler::with_tokens(tokens);
         profiler.loop_profiling(tokens);
-        Optimize::phase1(tokens, optimize, &profiler)?;
-        profiler.loop_profiling(tokens);
         profiler.print_profile(print_profiler, &tokens)?;
+        Optimize::basic_optimization(tokens, optimize, &profiler)?;
+        Optimize::simple_loop(tokens, optimize, &profiler)?;        
+        Optimize::memory_scan(tokens, optimize, &profiler)?;
         profiler.loop_profiling(tokens);
-        Optimize::phase2(tokens, optimize, &profiler)?;
         profiler.print_profile(print_profiler, &tokens)?;
         // Prologue
         let mut assembly = String::from(

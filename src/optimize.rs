@@ -5,24 +5,25 @@ use crate::profiler::*;
 pub struct Optimize;
 
 impl Optimize {
-    pub fn phase1(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
+    pub fn basic_optimization(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
         if optimize {
-            // Increment and decrement should be done first
             Self::sum_increment_decrement_values(tokens)?;
             Self::sum_increment_decrement_pointers(tokens)?;
-            // Then we can do the loop optimizations
+        }
+        Ok(())
+    }
+    pub fn simple_loop(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
+        if optimize {
             Self::simple_loop_optimization(profiler, tokens)?;
+        }
+        Ok(())
+    }
+    pub fn memory_scan(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
+        if optimize {
             Self::memory_scan_optimization(profiler, tokens)?;
         }
         Ok(())
-    }
-    pub fn phase2(tokens: &mut Vec<TokenType>, optimize: bool, profiler: &Profiler) -> BrainFluxError<()>{
-        if optimize {
-            Self::simple_loop_optimization(profiler, tokens)?;
-        }
-        Ok(())
-    }
-    // The following sum_increment_decrement_pointers and the sum_increment_decrement_values
+    }    // The following sum_increment_decrement_pointers and the sum_increment_decrement_values
     // Just sums up the number of consecutive Increments to IncrementN(n) token and then supersedes the
     // index of the first Increment/Decrement token with update IncrementN/DecrementN token
     // and alters the rest with Nops
